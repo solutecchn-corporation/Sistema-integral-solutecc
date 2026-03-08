@@ -1,4 +1,4 @@
-const CACHE_VERSION = "1.2.5"; // Actualizar con cada release
+const CACHE_VERSION = "1.2.6"; // Actualizar con cada release
 const CACHE_NAME = `visonixro-v${CACHE_VERSION}`;
 const urlsToCache = ["/", "/index.html", "/manifest.json"];
 
