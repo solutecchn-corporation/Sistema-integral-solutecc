@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { formatMoney } from '../../lib/formatMoney';
 import supabase from "../../lib/supabaseClient";
 
 type Cuenta = {
@@ -248,7 +249,7 @@ export default function EstadoResultados() {
                         fontWeight: 500,
                       }}
                     >
-                      L {item.monto.toFixed(2)}
+                      L {formatMoney(item.monto)}
                     </td>
                   </tr>
                 ))
@@ -258,7 +259,7 @@ export default function EstadoResultados() {
                   TOTAL INGRESOS
                 </td>
                 <td style={{ padding: "12px 0 8px 0", textAlign: "right" }}>
-                  L {totalIngresos.toFixed(2)}
+                  L {formatMoney(totalIngresos)}
                 </td>
               </tr>
             </tbody>
@@ -305,7 +306,7 @@ export default function EstadoResultados() {
                         fontWeight: 500,
                       }}
                     >
-                      L {item.monto.toFixed(2)}
+                      L {formatMoney(item.monto)}
                     </td>
                   </tr>
                 ))
@@ -315,7 +316,7 @@ export default function EstadoResultados() {
                   TOTAL GASTOS
                 </td>
                 <td style={{ padding: "12px 0 8px 0", textAlign: "right" }}>
-                  L {totalGastos.toFixed(2)}
+                  L {formatMoney(totalGastos)}
                 </td>
               </tr>
             </tbody>
@@ -355,7 +356,7 @@ export default function EstadoResultados() {
                 color: utilidadNeta >= 0 ? "#15803d" : "#991b1b",
               }}
             >
-              L {Math.abs(utilidadNeta).toFixed(2)}
+              L {formatMoney(Math.abs(utilidadNeta))}
             </span>
           </div>
           <p style={{ margin: "8px 0 0 0", fontSize: 12, color: "#475569" }}>
@@ -385,7 +386,7 @@ export default function EstadoResultados() {
                     fontWeight: 600,
                   }}
                 >
-                  L {totalIngresos.toFixed(2)}
+                  L {formatMoney(totalIngresos)}
                 </td>
               </tr>
               <tr>
@@ -397,7 +398,7 @@ export default function EstadoResultados() {
                     fontWeight: 600,
                   }}
                 >
-                  L {totalGastos.toFixed(2)}
+                  L {formatMoney(totalGastos)}
                 </td>
               </tr>
               <tr style={{ borderTop: "2px solid #cbd5e1", fontWeight: 700 }}>
@@ -411,7 +412,7 @@ export default function EstadoResultados() {
                     color: utilidadNeta >= 0 ? "#15803d" : "#991b1b",
                   }}
                 >
-                  L {Math.abs(utilidadNeta).toFixed(2)}
+                  L {formatMoney(Math.abs(utilidadNeta))}
                 </td>
               </tr>
             </tbody>

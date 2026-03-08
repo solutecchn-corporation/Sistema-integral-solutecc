@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { formatMoney } from '../../lib/formatMoney';
 import supabase from '../../lib/supabaseClient';
 import ModalWrapper from '../../components/ModalWrapper';
 import Confirmado from '../../components/Confirmado';
@@ -232,19 +233,19 @@ export default function SesionesCaja() {
               <div><strong>Estado:</strong><br />{selectedSession.estado}</div>
               <div><strong>Fecha apertura:</strong><br />{selectedSession.fecha_apertura ? new Date(selectedSession.fecha_apertura).toLocaleString() : '-'}</div>
               <div><strong>Fecha cierre:</strong><br />{selectedSession.fecha_cierre ? new Date(selectedSession.fecha_cierre).toLocaleString() : '-'}</div>
-              <div><strong>Monto inicial:</strong><br />L {Number(selectedSession.monto_inicial || 0).toFixed(2)}</div>
-              <div><strong>Total ingresos:</strong><br />L {Number(selectedSession.total_ingresos || 0).toFixed(2)}</div>
-              <div><strong>Total egresos:</strong><br />L {Number(selectedSession.total_egresos || 0).toFixed(2)}</div>
+              <div><strong>Monto inicial:</strong><br />L {formatMoney(Number(selectedSession.monto_inicial || 0))}</div>
+              <div><strong>Total ingresos:</strong><br />L {formatMoney(Number(selectedSession.total_ingresos || 0))}</div>
+              <div><strong>Total egresos:</strong><br />L {formatMoney(Number(selectedSession.total_egresos || 0))}</div>
               <div><strong>Saldo final:</strong><br />{selectedSession.saldo_final != null ? `L ${Number(selectedSession.saldo_final).toFixed(2)}` : '-'}</div>
-              <div><strong>Efectivo obtenido:</strong><br />L {Number(selectedSession.efectivo_obtenido || 0).toFixed(2)}</div>
-              <div><strong>Dólares obtenido:</strong><br />L {Number(selectedSession.dolares_obtenido || 0).toFixed(2)}</div>
-              <div><strong>Tarjeta obtenido:</strong><br />L {Number(selectedSession.tarjeta_obtenido || 0).toFixed(2)}</div>
-              <div><strong>Transferencia obtenido:</strong><br />L {Number(selectedSession.transferencia_obtenido || 0).toFixed(2)}</div>
-              <div><strong>Efectivo registrado:</strong><br />L {Number(selectedSession.efectivo_registrado || 0).toFixed(2)}</div>
-              <div><strong>Dólares registrado:</strong><br />L {Number(selectedSession.dolares_registrado || 0).toFixed(2)}</div>
-              <div><strong>Tarjeta registrado:</strong><br />L {Number(selectedSession.tarjeta_registrado || 0).toFixed(2)}</div>
-              <div><strong>Transferencia registrado:</strong><br />L {Number(selectedSession.transferencia_registrado || 0).toFixed(2)}</div>
-              <div><strong>Diferencia:</strong><br />L {Number(selectedSession.diferencia || 0).toFixed(2)}</div>
+              <div><strong>Efectivo obtenido:</strong><br />L {formatMoney(Number(selectedSession.efectivo_obtenido || 0))}</div>
+              <div><strong>Dólares obtenido:</strong><br />L {formatMoney(Number(selectedSession.dolares_obtenido || 0))}</div>
+              <div><strong>Tarjeta obtenido:</strong><br />L {formatMoney(Number(selectedSession.tarjeta_obtenido || 0))}</div>
+              <div><strong>Transferencia obtenido:</strong><br />L {formatMoney(Number(selectedSession.transferencia_obtenido || 0))}</div>
+              <div><strong>Efectivo registrado:</strong><br />L {formatMoney(Number(selectedSession.efectivo_registrado || 0))}</div>
+              <div><strong>Dólares registrado:</strong><br />L {formatMoney(Number(selectedSession.dolares_registrado || 0))}</div>
+              <div><strong>Tarjeta registrado:</strong><br />L {formatMoney(Number(selectedSession.tarjeta_registrado || 0))}</div>
+              <div><strong>Transferencia registrado:</strong><br />L {formatMoney(Number(selectedSession.transferencia_registrado || 0))}</div>
+              <div><strong>Diferencia:</strong><br />L {formatMoney(Number(selectedSession.diferencia || 0))}</div>
             </div>
 
             <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

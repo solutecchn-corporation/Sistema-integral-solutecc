@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { formatMoney } from '../../lib/formatMoney';
 import supabase from "../../lib/supabaseClient";
 
 export default function RepCompras() {
@@ -356,13 +357,13 @@ export default function RepCompras() {
                   </td>
                   <td style={{ padding: 12, fontSize: 13 }}>{r.cantidad}</td>
                   <td style={{ padding: 12, fontSize: 13 }}>
-                    L {r.subtotal.toFixed(2)}
+                    L {formatMoney(r.subtotal)}
                   </td>
                   <td style={{ padding: 12, fontSize: 13 }}>
-                    L {r.impuesto.toFixed(2)}
+                    L {formatMoney(r.impuesto)}
                   </td>
                   <td style={{ padding: 12, fontSize: 13 }}>
-                    L {r.total.toFixed(2)}
+                    L {formatMoney(r.total)}
                   </td>
                   <td style={{ padding: 12, fontSize: 13 }}>{r.estado}</td>
                   <td style={{ padding: 12, fontSize: 13 }}>{r.usuario}</td>
@@ -380,13 +381,13 @@ export default function RepCompras() {
                 <td style={{ padding: 12, fontSize: 13 }}>{totalCantidad}</td>
                 <td style={{ padding: 12, fontSize: 13 }}></td>
                 <td style={{ padding: 12, fontSize: 13 }}>
-                  L {totalSubtotal.toFixed(2)}
+                  L {formatMoney(totalSubtotal)}
                 </td>
                 <td style={{ padding: 12, fontSize: 13 }}>
-                  L {totalImpuesto.toFixed(2)}
+                  L {formatMoney(totalImpuesto)}
                 </td>
                 <td style={{ padding: 12, fontSize: 13 }}>
-                  L {totalGeneral.toFixed(2)}
+                  L {formatMoney(totalGeneral)}
                 </td>
                 <td style={{ padding: 12, fontSize: 13 }}></td>
                 <td style={{ padding: 12, fontSize: 13 }}></td>

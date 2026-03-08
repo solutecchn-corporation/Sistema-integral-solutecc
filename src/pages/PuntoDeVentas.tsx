@@ -63,7 +63,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const [busqueda, setBusqueda] = useState("");
   const [categoriaFiltro, setCategoriaFiltro] = useState("Todas");
   const [tipoFiltro, setTipoFiltro] = useState<"producto" | "servicio">(
-    "producto"
+    "producto",
   );
   const [showEntradaManualModal, setShowEntradaManualModal] = useState(false);
   const [taxRate, setTaxRate] = useState<number>(0.15); // default ISV 15%
@@ -85,12 +85,12 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           .toLowerCase()
           .includes(busqueda.toLowerCase())) &&
       (categoriaFiltro === "Todas" || p.categoria === categoriaFiltro) &&
-      (p.tipo === tipoFiltro || !p.tipo) // Filtrar por tipo seleccionado
+      (p.tipo === tipoFiltro || !p.tipo), // Filtrar por tipo seleccionado
   );
 
   const grossTotal = carrito.reduce(
     (sum, item) => sum + Number(item.producto.precio || 0) * item.cantidad,
-    0
+    0,
   );
   // Compute taxes as included in the item price (price includes taxes).
   // For each item, extract the tax portion: taxAmount = price - price / (1 + combinedRate)
@@ -123,7 +123,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const printCotizacionDirect = async (
     cliente: string,
     rtn: string | null,
-    cotizacionNumero?: string | null
+    cotizacionNumero?: string | null,
   ) => {
     try {
       skipCotizacionConfirmRef.current = true;
@@ -132,7 +132,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         cliente,
         rtn,
         null,
-        cotizacionNumero || cotizacionLastNumero
+        cotizacionNumero || cotizacionLastNumero,
       );
     } catch (e) {
       console.warn("Error printing cotizacion direct:", e);
@@ -144,7 +144,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const total = grossTotal;
   const subtotal = Math.max(
     0,
-    grossTotal - (isvTotal + imp18Total + impTouristTotal)
+    grossTotal - (isvTotal + imp18Total + impTouristTotal),
   );
   // Per-item tax breakdown for UI/debugging
   const perItemTaxes = carrito.map((item) => {
@@ -206,7 +206,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       const existente = prev.find((i) => i.producto.id === producto.id);
       if (existente) {
         return prev.map((i) =>
-          i.producto.id === producto.id ? { ...i, cantidad: i.cantidad + 1 } : i
+          i.producto.id === producto.id
+            ? { ...i, cantidad: i.cantidad + 1 }
+            : i,
         );
       }
       return [...prev, { producto, cantidad: 1 }];
@@ -223,13 +225,13 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           }
           return item;
         })
-        .filter((item) => item.cantidad > 0)
+        .filter((item) => item.cantidad > 0),
     );
   };
 
   const eliminarDelCarrito = (id: any) => {
     setCarrito((prev) =>
-      prev.filter((i) => String(i.producto.id) !== String(id))
+      prev.filter((i) => String(i.producto.id) !== String(id)),
     );
   };
 
@@ -246,7 +248,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       (i) =>
         `${i.producto.sku} | ${i.producto.nombre} x${i.cantidad} = L${(
           Number(i.producto.precio || 0) * i.cantidad
-        ).toFixed(2)}`
+        ).toFixed(2)}`,
     )
     .join("\n")}
   ----------------------------------------
@@ -254,7 +256,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   ISV (${(taxRate * 100).toFixed(2)}%): L${isvTotal.toFixed(2)}
   Impuesto 18%: L${imp18Total.toFixed(2)}
   Impuesto turístico (${(taxTouristRate * 100).toFixed(
-    2
+    2,
   )}%): L${impTouristTotal.toFixed(2)}
   TOTAL: L${total.toFixed(2)}
   ${tipo === "factura" ? "\n¡Gracias por su compra!" : "\nVálida por 24 horas"}
@@ -266,7 +268,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   // Facturación: modal de selección y generación de factura HTML
   const [facturarModalOpen, setFacturarModalOpen] = useState(false);
   const [printingMode, setPrintingMode] = useState<"factura" | "cotizacion">(
-    "factura"
+    "factura",
   );
   // confirmación para guardar cotización (aparecerá AL FINAL del flujo)
   const [cotizacionConfirmOpen, setCotizacionConfirmOpen] = useState(false);
@@ -311,7 +313,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       if (clienteTipo === "juridico") {
         console.debug(
           "handleRTNChange: buscando cliente juridico para RTN=",
-          val
+          val,
         );
         const { data, error } = await supabase
           .from("clientes")
@@ -385,7 +387,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       rtn?: string | null;
       cliente_id?: number;
       cotizacion_id?: string | number;
-    } = {}
+    } = {},
   ) => {
     try {
       if (!carrito || carrito.length === 0) return null;
@@ -523,23 +525,23 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         const exento = Boolean(it.producto.exento);
         const aplica18 = Boolean((it.producto as any).aplica_impuesto_18);
         const aplicaTur = Boolean(
-          (it.producto as any).aplica_impuesto_turistico
+          (it.producto as any).aplica_impuesto_turistico,
         );
         const isvItem = exento
           ? 0
           : aplica18
-          ? 0
-          : price * (taxRate || 0) * qty;
+            ? 0
+            : price * (taxRate || 0) * qty;
         const imp18Item = exento
           ? 0
           : aplica18
-          ? price * (tax18Rate || 0) * qty
-          : 0;
+            ? price * (tax18Rate || 0) * qty
+            : 0;
         const turItem = exento
           ? 0
           : aplicaTur
-          ? price * (taxTouristRate || 0) * qty
-          : 0;
+            ? price * (taxTouristRate || 0) * qty
+            : 0;
         const subtotalItem = price * qty;
         const totalItem = subtotalItem + isvItem + imp18Item + turItem;
         // Si es un servicio temporal (entrada manual), usar null como producto_id
@@ -583,7 +585,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       } catch (e) {
         console.debug(
           "Error refrescando productos tras guardar cotizacion:",
-          e
+          e,
         );
       }
 
@@ -599,7 +601,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const subtotalCalc = () => {
     const gross = carrito.reduce(
       (s, it) => s + Number(it.producto.precio || 0) * it.cantidad,
-      0
+      0,
     );
     let isv = 0;
     let imp18 = 0;
@@ -609,7 +611,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       const exento = Boolean(item.producto.exento);
       const aplica18 = Boolean((item.producto as any).aplica_impuesto_18);
       const aplicaTur = Boolean(
-        (item.producto as any).aplica_impuesto_turistico
+        (item.producto as any).aplica_impuesto_turistico,
       );
       if (exento) continue;
       const mainRate = aplica18 ? tax18Rate || 0 : taxRate || 0;
@@ -630,7 +632,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         (it.producto.exento
           ? 0
           : Number(it.producto.precio || 0) * it.cantidad),
-      0
+      0,
     );
 
   const doFacturaClienteFinal = async () => {
@@ -639,7 +641,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     setClienteNombre("Consumidor Final");
     setClienteRTN("C/F");
     console.debug(
-      "doFacturaClienteFinal: abrir modal pago (invoiceAfterPayment)"
+      "doFacturaClienteFinal: abrir modal pago (invoiceAfterPayment)",
     );
     setInvoiceAfterPayment(true);
     setPaymentModalOpen(true);
@@ -671,7 +673,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     cliente: string,
     rtn: string | null,
     paymentPayload: any,
-    cotizacionNumero?: string | null
+    cotizacionNumero?: string | null,
   ) => {
     let generator: any =
       printFormat === "cinta" ? generateFacturaHTMLCinta : generateFacturaHTML;
@@ -703,7 +705,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       try {
         console.debug(
           "Pre-print: marcando cotizacion como aceptada, id=",
-          cotizacionEditId
+          cotizacionEditId,
         );
         const { error: upErr } = await supabase
           .from("cotizaciones")
@@ -751,11 +753,11 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             "PV: CAI lookup - extracted userId:",
             userId,
             "typeof",
-            typeof userId
+            typeof userId,
           );
           console.debug(
             "PV: CAI lookup - extracted userNameFromStorage:",
-            userNameFromStorage
+            userNameFromStorage,
           );
           if (userId) {
             // normalizar id para la consulta: si parece un entero, pasar Number()
@@ -768,7 +770,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               const { data: caiRowsByUser, error: caiUserErr } = await supabase
                 .from("cai")
                 .select(
-                  "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual"
+                  "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual",
                 )
                 .eq("usuario_id", userIdQuery)
                 .order("id", { ascending: false })
@@ -782,7 +784,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             } catch (e) {
               console.debug(
                 "PV: CAI lookup by usuario_id failed (likely column missing):",
-                e
+                e,
               );
             }
           }
@@ -791,7 +793,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               const { data: caiRows, error: caiErr } = await supabase
                 .from("cai")
                 .select(
-                  "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual"
+                  "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual",
                 )
                 .eq("cajero", userNameFromStorage)
                 .order("id", { ascending: false })
@@ -824,31 +826,38 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     // Abrir en nueva ventana/pestaña para que funcione correctamente en móviles/tablets
     try {
       // Detectar si es móvil/tablet
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
+      const isMobile =
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+          navigator.userAgent,
+        );
+
       if (isMobile) {
         // En móviles: usar blob URL para abrir en nueva pestaña
-        const blob = new Blob([html], { type: 'text/html' });
+        const blob = new Blob([html], { type: "text/html" });
         const url = URL.createObjectURL(blob);
-        const newWindow = window.open(url, '_blank');
-        
+        const newWindow = window.open(url, "_blank");
+
         if (newWindow) {
           // Limpiar el blob URL después de un tiempo
           setTimeout(() => URL.revokeObjectURL(url), 10000);
-          
+
           // Intentar imprimir automáticamente después de cargar
-          newWindow.addEventListener('load', () => {
+          newWindow.addEventListener("load", () => {
             setTimeout(() => {
               try {
                 newWindow.print();
               } catch (e) {
-                console.debug("Auto-print no disponible en este navegador móvil");
+                console.debug(
+                  "Auto-print no disponible en este navegador móvil",
+                );
               }
             }, 500);
           });
         } else {
           // Fallback si el popup fue bloqueado
-          alert("Por favor, permite ventanas emergentes para imprimir la factura");
+          alert(
+            "Por favor, permite ventanas emergentes para imprimir la factura",
+          );
         }
       } else {
         // En desktop: abrir ventana normal
@@ -857,7 +866,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           printWindow.document.open();
           printWindow.document.write(html);
           printWindow.document.close();
-          
+
           // Esperar a que carguen las imágenes antes de imprimir
           const imgs = printWindow.document.images;
           if (imgs && imgs.length > 0) {
@@ -875,7 +884,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 }, 300);
               }
             };
-            
+
             for (let i = 0; i < imgs.length; i++) {
               const img = imgs[i] as HTMLImageElement;
               if (img.complete) {
@@ -897,12 +906,16 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             }, 300);
           }
         } else {
-          alert("Por favor, permite ventanas emergentes para imprimir la factura");
+          alert(
+            "Por favor, permite ventanas emergentes para imprimir la factura",
+          );
         }
       }
     } catch (e) {
       console.error("Error abriendo ventana de impresión:", e);
-      alert("Error al abrir la ventana de impresión. Por favor, verifica los permisos de ventanas emergentes.");
+      alert(
+        "Error al abrir la ventana de impresión. Por favor, verifica los permisos de ventanas emergentes.",
+      );
     }
 
     // post-print cleanup
@@ -950,7 +963,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
 
     // try compute invoice number from CAI if available (use caiInfoState first)
     let facturaNum: string = String(
-      Math.floor(Math.random() * 900000) + 100000
+      Math.floor(Math.random() * 900000) + 100000,
     );
     const usedCai = caiInfoState || caiData || null;
     let computedSeqNum: number | null = null;
@@ -982,7 +995,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         padWidth = Math.max(
           (rangoHastaRaw || rangoDeRaw || "").length,
           String(currentSeqNum).length,
-          1
+          1,
         );
 
         // current factura numeric part (use secuencia_actual if present else rango_de)
@@ -1000,7 +1013,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       } catch (e) {
         console.debug(
           "Error computing factura from caiInfoState, falling back to random:",
-          e
+          e,
         );
       }
     }
@@ -1054,7 +1067,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         const prodExento = Boolean((it.producto as any).exento);
         const aplica18 = Boolean((it.producto as any).aplica_impuesto_18);
         const aplicaTur = Boolean(
-          (it.producto as any).aplica_impuesto_turistico
+          (it.producto as any).aplica_impuesto_turistico,
         );
 
         // determine applicable rates (same as tax extraction used elsewhere)
@@ -1121,7 +1134,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           } else {
             // Si no hay secuencia del CAI, incrementar el número random
             facturaNum = String(
-              Math.floor(Math.random() * 900000) + 100000 + intentosFactura
+              Math.floor(Math.random() * 900000) + 100000 + intentosFactura,
             );
           }
 
@@ -1146,7 +1159,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     if (ventaErr) {
       const msg = String(
         (ventaErr && (ventaErr.message || ventaErr.msg || ventaErr.details)) ||
-          ""
+          "",
       );
       const code = ventaErr && ventaErr.code ? String(ventaErr.code) : "";
       const looksLikeMissingCol =
@@ -1156,7 +1169,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       if (looksLikeMissingCol) {
         console.warn(
           "Insert venta failed due missing column(s). Retrying without CAI fields.",
-          { msg, code }
+          { msg, code },
         );
         const minimalPayload: any = { ...ventaPayload };
         delete minimalPayload.cai;
@@ -1217,7 +1230,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     if (!ventaId) {
       console.warn(
         "No se pudo obtener venta.id tras insertar. Respuesta:",
-        ventaInsRaw
+        ventaInsRaw,
       );
       return null;
     }
@@ -1247,7 +1260,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     const isUuid = (v: any) =>
       typeof v === "string" &&
       /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
-        v
+        v,
       );
     if (caiData && usuarioId && isUuid(usuarioId)) {
       try {
@@ -1259,11 +1272,11 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             cantidad: Number(it.cantidad || 0),
             precio_unitario: Number(it.producto.precio || 0),
             subtotal: Number(
-              (Number(it.producto.precio || 0) * it.cantidad).toFixed(6)
+              (Number(it.producto.precio || 0) * it.cantidad).toFixed(6),
             ),
             descuento: 0,
             total: Number(
-              (Number(it.producto.precio || 0) * it.cantidad).toFixed(6)
+              (Number(it.producto.precio || 0) * it.cantidad).toFixed(6),
             ),
           }));
 
@@ -1286,7 +1299,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             p_total: Number(total || 0),
             p_cambio: String(Number(cambioVal).toFixed(2)),
             p_detalles: rpcDetalles,
-          }
+          },
         );
 
         console.debug("RPC create_venta_with_detalle response:", {
@@ -1296,7 +1309,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         if (rpcErr) {
           console.warn(
             "RPC create_venta_with_detalle failed, falling back to client inserts",
-            rpcErr
+            rpcErr,
           );
         } else if (rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
           const row = rpcData[0] as any;
@@ -1307,7 +1320,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 const { data: refreshed, error: refErr } = await supabase
                   .from("cai")
                   .select(
-                    "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual"
+                    "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual",
                   )
                   .eq("id", usedCai.id)
                   .maybeSingle();
@@ -1333,7 +1346,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 const { data: refreshed, error: refErr } = await supabase
                   .from("cai")
                   .select(
-                    "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual"
+                    "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual",
                   )
                   .eq("id", usedCai.id)
                   .maybeSingle();
@@ -1360,7 +1373,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     } else if (caiData && usuarioId) {
       console.debug(
         "Skipping RPC create_venta_with_detalle because usuarioId is not a UUID. usuarioId:",
-        usuarioId
+        usuarioId,
       );
     }
 
@@ -1396,7 +1409,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           // Excluir si producto_id es null (servicios temporales)
           if (!d.producto_id || d.producto_id === null) return false;
           const item = carrito.find(
-            (c) => String(c.producto.id) === String(d.producto_id)
+            (c) => String(c.producto.id) === String(d.producto_id),
           );
           return item && item.producto.tipo !== "servicio";
         })
@@ -1417,7 +1430,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         if (regErr)
           console.warn(
             "Error registrando salida en registro_de_inventario:",
-            regErr
+            regErr,
           );
         else
           console.debug("Registro_de_inventario inserciones (salida):", regIns);
@@ -1425,7 +1438,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     } catch (e) {
       console.warn(
         "Excepción registrando salidas en registro_de_inventario:",
-        e
+        e,
       );
     }
     // Actualizar stock en tabla `inventario`: restar cantidades vendidas por producto
@@ -1459,7 +1472,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             console.warn(
               "Error leyendo stock de inventario para producto",
               pid,
-              prodErr
+              prodErr,
             );
             continue;
           }
@@ -1479,7 +1492,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               "de",
               currentStock,
               "a",
-              newStock
+              newStock,
             );
         } catch (ee) {
           console.warn("Excepción actualizando stock para producto", pid, ee);
@@ -1488,7 +1501,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     } catch (e) {
       console.warn(
         "Excepción agregada en proceso de actualización de stock:",
-        e
+        e,
       );
     }
     // insertar pagos relacionados (si existen en paymentPayload.pagos)
@@ -1613,7 +1626,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           ) {
             console.warn(
               "No se actualizará cai.secuencia_actual porque excede rango_hasta",
-              { toStoreNum, rangoHastaNum }
+              { toStoreNum, rangoHastaNum },
             );
           } else {
             const { error: updCaiErr } = await supabase
@@ -1623,14 +1636,14 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             if (updCaiErr)
               console.debug(
                 "Error updating cai.secuencia_actual (manual path):",
-                updCaiErr
+                updCaiErr,
               );
             else {
               console.debug(
                 "Updated cai.secuencia_actual to",
                 seqToStore,
                 "for cai id",
-                manualCaiId
+                manualCaiId,
               );
               try {
                 const newCai = {
@@ -1644,7 +1657,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               } catch (e) {
                 console.debug(
                   "Error updating local caiInfoState/localStorage:",
-                  e
+                  e,
                 );
               }
             }
@@ -1658,14 +1671,14 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           if (updCaiErr)
             console.debug(
               "Error updating cai.secuencia_actual (manual path, after validation fail):",
-              updCaiErr
+              updCaiErr,
             );
           else {
             console.debug(
               "Updated cai.secuencia_actual to",
               seqToStore,
               "for cai id",
-              manualCaiId
+              manualCaiId,
             );
             try {
               const newCai = {
@@ -1679,7 +1692,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             } catch (e) {
               console.debug(
                 "Error updating local caiInfoState/localStorage (after validation):",
-                e
+                e,
               );
             }
           }
@@ -1702,7 +1715,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       try {
         console.debug(
           "handlePostPrint: marcando cotizacion como facturado, id=",
-          cotizacionEditId
+          cotizacionEditId,
         );
         const { error: upErr } = await supabase
           .from("cotizaciones")
@@ -1817,14 +1830,14 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         taxTouristRate,
         total: total,
         pagos: paymentInfo,
-      }
+      },
     );
 
     if (printingMode === "factura" && cotizacionEditId) {
       try {
         console.debug(
           "Pre-print: marcando cotizacion como facturado, id=",
-          cotizacionEditId
+          cotizacionEditId,
         );
         const { error: upErr } = await supabase
           .from("cotizaciones")
@@ -1833,12 +1846,12 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         if (upErr) {
           console.warn(
             "Error marcando cotizacion como facturado (pre-print):",
-            upErr
+            upErr,
           );
         } else {
           console.debug(
             "Cotizacion marcada como facturado (pre-print):",
-            cotizacionEditId
+            cotizacionEditId,
           );
           try {
             setCotizacionEditId(null);
@@ -1877,21 +1890,21 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               : null;
           console.debug(
             "PV (clienteNormal): CAI lookup - raw localStorage.user:",
-            rawU
+            rawU,
           );
           console.debug(
             "PV (clienteNormal): CAI lookup - parsed user object:",
-            parsedU
+            parsedU,
           );
           console.debug(
             "PV (clienteNormal): CAI lookup - extracted userId:",
             userId,
             "typeof",
-            typeof userId
+            typeof userId,
           );
           console.debug(
             "PV (clienteNormal): CAI lookup - extracted userNameFromStorage:",
-            userNameFromStorage
+            userNameFromStorage,
           );
           if (userId) {
             const userIdQuery: any =
@@ -1902,7 +1915,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               const { data: caiRowsByUser, error: caiUserErr } = await supabase
                 .from("cai")
                 .select(
-                  "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual"
+                  "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual",
                 )
                 .eq("usuario_id", userIdQuery)
                 .order("id", { ascending: false })
@@ -1916,7 +1929,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             } catch (e) {
               console.debug(
                 "PV (clienteNormal): CAI lookup by usuario_id failed (likely column missing):",
-                e
+                e,
               );
             }
           }
@@ -1925,7 +1938,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               const { data: caiRows, error: caiErr } = await supabase
                 .from("cai")
                 .select(
-                  "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual"
+                  "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual",
                 )
                 .eq("cajero", userNameFromStorage)
                 .order("id", { ascending: false })
@@ -1935,14 +1948,14 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             } catch (e) {
               console.debug(
                 "PV (clienteNormal): CAI lookup by cajero failed:",
-                e
+                e,
               );
             }
           }
         } catch (e) {
           console.debug(
             "No se pudo cargar CAI desde frontend (cliente normal):",
-            e
+            e,
           );
         }
         await insertVenta({
@@ -1960,31 +1973,38 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     // Abrir en nueva ventana/pestaña para que funcione correctamente en móviles/tablets
     try {
       // Detectar si es móvil/tablet
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
+      const isMobile =
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+          navigator.userAgent,
+        );
+
       if (isMobile) {
         // En móviles: usar blob URL para abrir en nueva pestaña
-        const blob = new Blob([html], { type: 'text/html' });
+        const blob = new Blob([html], { type: "text/html" });
         const url = URL.createObjectURL(blob);
-        const newWindow = window.open(url, '_blank');
-        
+        const newWindow = window.open(url, "_blank");
+
         if (newWindow) {
           // Limpiar el blob URL después de un tiempo
           setTimeout(() => URL.revokeObjectURL(url), 10000);
-          
+
           // Intentar imprimir automáticamente después de cargar
-          newWindow.addEventListener('load', () => {
+          newWindow.addEventListener("load", () => {
             setTimeout(() => {
               try {
                 newWindow.print();
               } catch (e) {
-                console.debug("Auto-print no disponible en este navegador móvil");
+                console.debug(
+                  "Auto-print no disponible en este navegador móvil",
+                );
               }
             }, 500);
           });
         } else {
           // Fallback si el popup fue bloqueado
-          alert("Por favor, permite ventanas emergentes para imprimir la factura");
+          alert(
+            "Por favor, permite ventanas emergentes para imprimir la factura",
+          );
         }
       } else {
         // En desktop: abrir ventana normal
@@ -1993,7 +2013,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           printWindow.document.open();
           printWindow.document.write(html);
           printWindow.document.close();
-          
+
           // Esperar a que carguen las imágenes antes de imprimir
           const imgs = printWindow.document.images;
           if (imgs && imgs.length > 0) {
@@ -2011,7 +2031,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 }, 300);
               }
             };
-            
+
             for (let i = 0; i < imgs.length; i++) {
               const img = imgs[i] as HTMLImageElement;
               if (img.complete) {
@@ -2033,12 +2053,16 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             }, 300);
           }
         } else {
-          alert("Por favor, permite ventanas emergentes para imprimir la factura");
+          alert(
+            "Por favor, permite ventanas emergentes para imprimir la factura",
+          );
         }
       }
     } catch (e) {
       console.error("Error abriendo ventana de impresión:", e);
-      alert("Error al abrir la ventana de impresión. Por favor, verifica los permisos de ventanas emergentes.");
+      alert(
+        "Error al abrir la ventana de impresión. Por favor, verifica los permisos de ventanas emergentes.",
+      );
     }
     const afterFinish = async () => {
       if (printingMode === "factura") {
@@ -2088,7 +2112,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         if (data && Array.isArray(data.items)) setEntradas(data.items);
         console.log(
           "inventario cargado:",
-          data && data.items ? data.items.length : 0
+          data && data.items ? data.items.length : 0,
         );
       })
       .catch((err) => {
@@ -2102,7 +2126,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       const { data: invData, error: invErr } = await supabase
         .from("inventario")
         .select(
-          "id, sku, nombre, categoria, imagen, modelo, descripcion, exento, aplica_impuesto_18, aplica_impuesto_turistico, tipo"
+          "id, sku, nombre, categoria, imagen, modelo, descripcion, exento, aplica_impuesto_18, aplica_impuesto_turistico, tipo",
         );
       if (invErr) throw invErr;
       const invRows = Array.isArray(invData) ? invData : [];
@@ -2146,7 +2170,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           const pid = String((r as any).producto_id);
           const qty = Number((r as any).cantidad) || 0;
           const tipo = String(
-            (r as any).tipo_de_movimiento || ""
+            (r as any).tipo_de_movimiento || "",
           ).toUpperCase();
           if (tipo === "ENTRADA") stockMap[pid] = (stockMap[pid] || 0) + qty;
           else if (tipo === "SALIDA")
@@ -2168,8 +2192,8 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           priceMap[String(r.id)] !== undefined
             ? priceMap[String(r.id)]
             : r.precio !== undefined
-            ? Number(r.precio)
-            : 0,
+              ? Number(r.precio)
+              : 0,
         exento:
           r.exento === true ||
           String(r.exento) === "true" ||
@@ -2220,7 +2244,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         // si la payload contiene header.id, marcar que estamos editando esa cotización
         try {
           setCotizacionEditId(
-            parsed.header && parsed.header.id ? String(parsed.header.id) : null
+            parsed.header && parsed.header.id ? String(parsed.header.id) : null,
           );
         } catch (e) {}
         try {
@@ -2238,14 +2262,14 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         const detalles = Array.isArray(parsed.detalles) ? parsed.detalles : [];
         const items: ItemCarrito[] = detalles.map((d: any) => {
           const prodMatch = productos.find(
-            (p) => String(p.id) === String(d.producto_id)
+            (p) => String(p.id) === String(d.producto_id),
           );
           const producto: Producto = prodMatch
             ? { ...prodMatch }
             : {
                 id: String(
                   d.producto_id ||
-                    "temp-" + Math.random().toString(36).slice(2, 8)
+                    "temp-" + Math.random().toString(36).slice(2, 8),
                 ),
                 sku: d.sku ?? undefined,
                 nombre: d.descripcion || d.nombre || "Artículo",
@@ -2287,11 +2311,16 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         const payload = ce.detail;
         if (!payload || !Array.isArray(payload.detalles)) return;
         const items: ItemCarrito[] = payload.detalles.map((d: any) => {
-          const prodMatch = productos.find((p) => String(p.id) === String(d.producto_id));
+          const prodMatch = productos.find(
+            (p) => String(p.id) === String(d.producto_id),
+          );
           const producto: Producto = prodMatch
             ? { ...prodMatch }
             : {
-                id: String(d.producto_id || "temp-" + Math.random().toString(36).slice(2, 8)),
+                id: String(
+                  d.producto_id ||
+                    "temp-" + Math.random().toString(36).slice(2, 8),
+                ),
                 sku: d.sku ?? undefined,
                 nombre: d.descripcion || "Artículo",
                 precio: Number(d.precio_unitario || 0),
@@ -2311,7 +2340,10 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
 
     return () => {
       window.removeEventListener("cotizacion:load", handler as EventListener);
-      window.removeEventListener("pedido:cargar", pedidoHandler as EventListener);
+      window.removeEventListener(
+        "pedido:cargar",
+        pedidoHandler as EventListener,
+      );
     };
   }, [productos]);
 
@@ -2359,7 +2391,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             const { data: byUser, error: byUserErr } = await supabase
               .from("cai")
               .select(
-                "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual"
+                "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual",
               )
               .eq("usuario_id", userIdQuery)
               .order("id", { ascending: false })
@@ -2375,7 +2407,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             const { data: byName, error: byNameErr } = await supabase
               .from("cai")
               .select(
-                "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual"
+                "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual",
               )
               .eq("cajero", userNameLocal)
               .order("id", { ascending: false })
@@ -2436,7 +2468,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             const { data: byUser, error: byUserErr } = await supabase
               .from("ncredito")
               .select(
-                "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual,caja,cajero,usuario_id"
+                "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual,caja,cajero,usuario_id",
               )
               .eq("usuario_id", userIdQuery)
               .order("id", { ascending: false })
@@ -2452,7 +2484,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             const { data: byName, error: byNameErr } = await supabase
               .from("ncredito")
               .select(
-                "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual,caja,cajero,usuario_id"
+                "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual,caja,cajero,usuario_id",
               )
               .eq("cajero", userNameLocal)
               .order("id", { ascending: false })
@@ -2532,7 +2564,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                       const { data: byUser, error: byUserErr } = await supabase
                         .from("cai")
                         .select(
-                          "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual"
+                          "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual",
                         )
                         .eq("usuario_id", userIdLocal)
                         .order("id", { ascending: false })
@@ -2547,7 +2579,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                   } catch (e) {
                     console.debug(
                       "PV: refetch CAI by usuario_id failed (column may be missing):",
-                      e
+                      e,
                     );
                   }
                   if (!fetched && userNameLocal) {
@@ -2555,7 +2587,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                       const { data: byName, error: byNameErr } = await supabase
                         .from("cai")
                         .select(
-                          "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual"
+                          "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual",
                         )
                         .eq("cajero", userNameLocal)
                         .order("id", { ascending: false })
@@ -2577,7 +2609,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                     } catch (e) {}
                     console.debug(
                       "PV: refreshed caiInfo from Supabase:",
-                      fetched
+                      fetched,
                     );
                   }
                 }
@@ -2622,7 +2654,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                       const { data: byUser, error: byUserErr } = await supabase
                         .from("ncredito")
                         .select(
-                          "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual,caja,cajero,usuario_id"
+                          "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual,caja,cajero,usuario_id",
                         )
                         .eq("usuario_id", userIdLocal)
                         .order("id", { ascending: false })
@@ -2637,7 +2669,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                   } catch (e) {
                     console.debug(
                       "PV: refetch ncInfo by usuario_id failed (column may be missing):",
-                      e
+                      e,
                     );
                   }
                   if (!fetched && userNameLocal) {
@@ -2645,7 +2677,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                       const { data: byName, error: byNameErr } = await supabase
                         .from("ncredito")
                         .select(
-                          "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual,caja,cajero,usuario_id"
+                          "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual,caja,cajero,usuario_id",
                         )
                         .eq("cajero", userNameLocal)
                         .order("id", { ascending: false })
@@ -2667,7 +2699,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                     } catch (e) {}
                     console.debug(
                       "PV: refreshed ncInfo from Supabase:",
-                      fetched
+                      fetched,
                     );
                   }
                 }
@@ -2785,7 +2817,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       ent =
         productos.find(
           (p) =>
-            String(p.sku || "") === String(sku) || String(p.id) === String(sku)
+            String(p.sku || "") === String(sku) || String(p.id) === String(sku),
         ) || null;
     } catch (e) {
       ent = null;
@@ -2838,7 +2870,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             }
             let objectPath = src;
             const m = String(src).match(
-              /\/storage\/v1\/object\/public\/([^/]+)\/(.*)/
+              /\/storage\/v1\/object\/public\/([^/]+)\/(.*)/,
             );
             if (m) objectPath = decodeURIComponent(m[2]);
             try {
@@ -2865,7 +2897,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             } catch (e) {
               urlMap[String(p.id)] = null;
             }
-          })
+          }),
         );
         if (mounted) setImageUrls(urlMap);
       } catch (e) {
@@ -3009,7 +3041,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                   if (!q) return;
                   // Prefer exact SKU match, otherwise take first filtered
                   const exact = productosFiltrados.find(
-                    (p) => String(p.sku || "").toLowerCase() === q
+                    (p) => String(p.sku || "").toLowerCase() === q,
                   );
                   const candidato = exact || productosFiltrados[0];
                   if (candidato) {

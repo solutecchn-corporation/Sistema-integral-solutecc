@@ -98,7 +98,7 @@ export default function Stock() {
             // check for storage path pattern
             let objectPath = src;
             const m = String(src).match(
-              /\/storage\/v1\/object\/public\/([^/]+)\/(.*)/
+              /\/storage\/v1\/object\/public\/([^/]+)\/(.*)/,
             );
             if (m) {
               objectPath = decodeURIComponent(m[2]);
@@ -127,7 +127,7 @@ export default function Stock() {
             } catch (e) {
               urlMap[String(r.id)] = null;
             }
-          })
+          }),
         );
         setImageUrls(urlMap);
       } catch (e) {

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { formatMoney } from '../../lib/formatMoney';
 import supabase from "../../lib/supabaseClient";
 
 type AsientoContable = {
@@ -335,12 +336,12 @@ export default function LibroMayor() {
                   fontWeight: 600,
                 }}
               >
-                <span>Total Debe: L {resumen.totalDebe.toFixed(2)}</span>
-                <span>Total Haber: L {resumen.totalHaber.toFixed(2)}</span>
+                <span>Total Debe: L {formatMoney(resumen.totalDebe)}</span>
+                <span>Total Haber: L {formatMoney(resumen.totalHaber)}</span>
                 <span
                   style={{ color: resumen.saldo >= 0 ? "#15803d" : "#991b1b" }}
                 >
-                  Saldo: L {Math.abs(resumen.saldo).toFixed(2)}{" "}
+                  Saldo: L {formatMoney(Math.abs(resumen.saldo))}{" "}
                   {resumen.saldo >= 0 ? "(Deudor)" : "(Acreedor)"}
                 </span>
               </div>

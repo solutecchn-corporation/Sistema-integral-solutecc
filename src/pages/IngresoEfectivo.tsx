@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { formatMoney } from '../lib/formatMoney';
 import supabase from "../lib/supabaseClient";
 import MovimientoTypeModal from "../components/MovimientoTypeModal";
 import MovimientoFormModal from "../components/MovimientoFormModal";
@@ -470,7 +471,7 @@ export default function IngresoEfectivo({ onBack }: { onBack: () => void }) {
                         <td
                           style={{ padding: "10px 12px", textAlign: "right" }}
                         >
-                          L{r.monto.toFixed(2)}
+                          L{formatMoney(r.monto)}
                         </td>
                         <td style={{ padding: "10px 12px" }}>
                           {new Date(r.fecha).toLocaleString()}

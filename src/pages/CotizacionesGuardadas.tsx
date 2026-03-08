@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { formatMoney } from '../lib/formatMoney';
 import supabase from "../lib/supabaseClient";
 import generateCotizacionHTML from "../lib/cotizaconhtmlimp";
 import ModalWrapper from "../components/ModalWrapper";
@@ -657,7 +658,7 @@ export default function CotizacionesGuardadas({
                         color: "#1e293b",
                       }}
                     >
-                      L {Number(r.total || 0).toFixed(2)}
+                      L {formatMoney(Number(r.total || 0))}
                     </td>
                     <td style={{ padding: "16px 24px" }}>
                       <span
@@ -958,7 +959,7 @@ export default function CotizacionesGuardadas({
                           color: "#64748b",
                         }}
                       >
-                        L {Number(d.precio_unitario || 0).toFixed(2)}
+                        L {formatMoney(Number(d.precio_unitario || 0))}
                       </td>
                       <td
                         style={{
@@ -968,10 +969,10 @@ export default function CotizacionesGuardadas({
                         }}
                       >
                         L{" "}
-                        {Number(
+                        {formatMoney(Number(
                           d.subtotal ||
                             (d.precio_unitario || 0) * (d.cantidad || 0)
-                        ).toFixed(2)}
+                        ))}
                       </td>
                       <td
                         style={{
@@ -982,9 +983,9 @@ export default function CotizacionesGuardadas({
                         }}
                       >
                         L{" "}
-                        {Number(
+                        {formatMoney(Number(
                           d.total || (d.subtotal || 0) - (d.descuento || 0)
-                        ).toFixed(2)}
+                        ))}
                       </td>
                     </tr>
                   ))}
@@ -1011,7 +1012,7 @@ export default function CotizacionesGuardadas({
                   >
                     <span style={{ color: "#64748b" }}>Subtotal:</span>
                     <span style={{ fontWeight: 500 }}>
-                      L {Number(viewHeader.subtotal || 0).toFixed(2)}
+                      L {formatMoney(Number(viewHeader.subtotal || 0))}
                     </span>
                   </div>
                   <div
@@ -1023,7 +1024,7 @@ export default function CotizacionesGuardadas({
                   >
                     <span style={{ color: "#64748b" }}>Impuesto:</span>
                     <span style={{ fontWeight: 500 }}>
-                      L {Number(viewHeader.impuesto || 0).toFixed(2)}
+                      L {formatMoney(Number(viewHeader.impuesto || 0))}
                     </span>
                   </div>
                   <div
@@ -1044,7 +1045,7 @@ export default function CotizacionesGuardadas({
                         fontSize: "16px",
                       }}
                     >
-                      L {Number(viewHeader.total || 0).toFixed(2)}
+                      L {formatMoney(Number(viewHeader.total || 0))}
                     </span>
                   </div>
                 </div>
@@ -1266,9 +1267,9 @@ export default function CotizacionesGuardadas({
                       </td>
                       <td style={{ padding: "12px 16px" }}>
                         L{" "}
-                        {Number(
+                        {formatMoney(Number(
                           (d.precio_unitario || 0) * (d.cantidad || 0)
-                        ).toFixed(2)}
+                        ))}
                       </td>
                     </tr>
                   ))}

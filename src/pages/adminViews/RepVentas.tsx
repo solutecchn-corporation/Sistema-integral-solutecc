@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { formatMoney } from '../../lib/formatMoney';
 import supabase from "../../lib/supabaseClient";
 
 export default function RepVentas() {
@@ -505,28 +506,28 @@ export default function RepVentas() {
                   </td>
                   <td style={{ padding: 12, fontSize: 13 }}>{r.cantidad}</td>
                   <td style={{ padding: 12, fontSize: 13 }}>
-                    L {Number(r.subExonerado || 0).toFixed(2)}
+                    L {formatMoney(Number(r.subExonerado || 0))}
                   </td>
                   <td style={{ padding: 12, fontSize: 13 }}>
-                    L {Number(r.subExento || 0).toFixed(2)}
+                    L {formatMoney(Number(r.subExento || 0))}
                   </td>
                   <td style={{ padding: 12, fontSize: 13 }}>
-                    L {Number(r.subGravado || 0).toFixed(2)}
+                    L {formatMoney(Number(r.subGravado || 0))}
                   </td>
                   <td style={{ padding: 12, fontSize: 13 }}>
-                    L {Number(r.subTuristico || 0).toFixed(2)}
+                    L {formatMoney(Number(r.subTuristico || 0))}
                   </td>
                   <td style={{ padding: 12, fontSize: 13 }}>
-                    L {Number(r.isv15 || 0).toFixed(2)}
+                    L {formatMoney(Number(r.isv15 || 0))}
                   </td>
                   <td style={{ padding: 12, fontSize: 13 }}>
-                    L {Number(r.isv18 || 0).toFixed(2)}
+                    L {formatMoney(Number(r.isv18 || 0))}
                   </td>
                   <td style={{ padding: 12, fontSize: 13 }}>
-                    L {Number(r.isv4 || 0).toFixed(2)}
+                    L {formatMoney(Number(r.isv4 || 0))}
                   </td>
                   <td style={{ padding: 12, fontSize: 13 }}>
-                    L {Number(r.total || 0).toFixed(2)}
+                    L {formatMoney(Number(r.total || 0))}
                   </td>
                 </tr>
               ))
@@ -542,28 +543,28 @@ export default function RepVentas() {
                 <td style={{ padding: 12, fontSize: 13 }}></td>
                 <td style={{ padding: 12, fontSize: 13 }}>{totalCantidad}</td>
                 <td style={{ padding: 12, fontSize: 13 }}>
-                  L {totalSubExonerado.toFixed(2)}
+                  L {formatMoney(totalSubExonerado)}
                 </td>
                 <td style={{ padding: 12, fontSize: 13 }}>
-                  L {totalSubExento.toFixed(2)}
+                  L {formatMoney(totalSubExento)}
                 </td>
                 <td style={{ padding: 12, fontSize: 13 }}>
-                  L {totalSubGravado.toFixed(2)}
+                  L {formatMoney(totalSubGravado)}
                 </td>
                 <td style={{ padding: 12, fontSize: 13 }}>
-                  L {totalSubTuristico.toFixed(2)}
+                  L {formatMoney(totalSubTuristico)}
                 </td>
                 <td style={{ padding: 12, fontSize: 13 }}>
-                  L {totalIsv15.toFixed(2)}
+                  L {formatMoney(totalIsv15)}
                 </td>
                 <td style={{ padding: 12, fontSize: 13 }}>
-                  L {totalIsv18.toFixed(2)}
+                  L {formatMoney(totalIsv18)}
                 </td>
                 <td style={{ padding: 12, fontSize: 13 }}>
-                  L {totalIsv4.toFixed(2)}
+                  L {formatMoney(totalIsv4)}
                 </td>
                 <td style={{ padding: 12, fontSize: 13 }}>
-                  L {totalGeneral.toFixed(2)}
+                  L {formatMoney(totalGeneral)}
                 </td>
               </tr>
             )}

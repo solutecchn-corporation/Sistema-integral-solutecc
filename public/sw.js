@@ -14,7 +14,7 @@ self.addEventListener("install", (event) => {
       })
       .catch((err) => {
         console.log("[SW] Cache install error:", err);
-      })
+      }),
   );
   self.skipWaiting();
 });
@@ -30,9 +30,9 @@ self.addEventListener("activate", (event) => {
             console.log(`[SW] Deleting old cache: ${cacheName}`);
             return caches.delete(cacheName);
           }
-        })
+        }),
       );
-    })
+    }),
   );
   self.clients.claim();
 });
@@ -40,7 +40,7 @@ self.addEventListener("activate", (event) => {
 // Fetch event - Network first for JS/CSS, cache first for others
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  
+
   // Network-first strategy for JS, CSS, and JSON files (always get fresh code)
   if (
     url.pathname.endsWith(".js") ||
@@ -65,7 +65,7 @@ self.addEventListener("fetch", (event) => {
           return caches.match(event.request).then((cachedResponse) => {
             return cachedResponse || new Response("Offline", { status: 503 });
           });
-        })
+        }),
     );
     return;
   }
@@ -97,6 +97,6 @@ self.addEventListener("fetch", (event) => {
       })
       .catch(() => {
         return new Response("Offline", { status: 503 });
-      })
+      }),
   );
 });

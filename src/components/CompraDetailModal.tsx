@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { formatMoney } from '../lib/formatMoney'
 import supabase from '../lib/supabaseClient'
 
 type DetalleRow = {
@@ -95,10 +96,10 @@ export default function CompraDetailModal({ open, compraId, onClose }: { open: b
                     <tr key={String(r.id)}>
                       <td>{productosMap[String(r.producto_id)] ? productosMap[String(r.producto_id)].nombre : String(r.producto_id)}</td>
                       <td>{cantidad.toFixed(2)}</td>
-                      <td>{costo.toFixed(2)}</td>
-                      <td>{impuestoLine.toFixed(2)}</td>
-                      <td>{subtotalLine.toFixed(2)}</td>
-                      <td>{totalLine.toFixed(2)}</td>
+                      <td>{formatMoney(costo)}</td>
+                      <td>{formatMoney(impuestoLine)}</td>
+                      <td>{formatMoney(subtotalLine)}</td>
+                      <td>{formatMoney(totalLine)}</td>
                     </tr>
                   )
                 })}
@@ -121,9 +122,9 @@ export default function CompraDetailModal({ open, compraId, onClose }: { open: b
                   return (
                     <tr>
                       <td colSpan={3} style={{ textAlign: 'right' }}>Totales:</td>
-                      <td>{totals.impuesto.toFixed(2)}</td>
-                      <td>{totals.subtotal.toFixed(2)}</td>
-                      <td>{totals.total.toFixed(2)}</td>
+                      <td>{formatMoney(totals.impuesto)}</td>
+                      <td>{formatMoney(totals.subtotal)}</td>
+                      <td>{formatMoney(totals.total)}</td>
                     </tr>
                   )
                 })()}

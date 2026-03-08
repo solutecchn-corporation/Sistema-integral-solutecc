@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { formatMoney } from '../lib/formatMoney';
 import supabase from "../lib/supabaseClient";
 import { hondurasNowISO } from "../lib/useHondurasTime";
 
@@ -477,7 +478,7 @@ export default function CompraCreateModal({ open, onClose, onCreated }: Props) {
                 >
                   <span style={{ color: "#64748b" }}>Subtotal:</span>
                   <strong style={{ color: "#1e293b" }}>
-                    L {totals.subtotal.toFixed(2)}
+                    L {formatMoney(totals.subtotal)}
                   </strong>
                 </div>
                 <div
@@ -490,7 +491,7 @@ export default function CompraCreateModal({ open, onClose, onCreated }: Props) {
                 >
                   <span style={{ color: "#64748b" }}>Impuesto:</span>
                   <strong style={{ color: "#1e293b" }}>
-                    L {totals.impuesto.toFixed(2)}
+                    L {formatMoney(totals.impuesto)}
                   </strong>
                 </div>
                 <div
@@ -507,7 +508,7 @@ export default function CompraCreateModal({ open, onClose, onCreated }: Props) {
                     Total:
                   </span>
                   <strong style={{ fontSize: 20, color: "#667eea" }}>
-                    L {totals.total.toFixed(2)}
+                    L {formatMoney(totals.total)}
                   </strong>
                 </div>
               </div>
@@ -805,7 +806,7 @@ export default function CompraCreateModal({ open, onClose, onCreated }: Props) {
                                   fontWeight: 500,
                                 }}
                               >
-                                L {it.costo_unitario.toFixed(2)}
+                                L {formatMoney(it.costo_unitario)}
                               </td>
                               <td
                                 style={{
@@ -815,7 +816,7 @@ export default function CompraCreateModal({ open, onClose, onCreated }: Props) {
                                   textAlign: "right",
                                 }}
                               >
-                                L {impuestoLine.toFixed(2)}
+                                L {formatMoney(impuestoLine)}
                               </td>
                               <td
                                 style={{
@@ -826,7 +827,7 @@ export default function CompraCreateModal({ open, onClose, onCreated }: Props) {
                                   fontWeight: 600,
                                 }}
                               >
-                                L {subtotalLine.toFixed(2)}
+                                L {formatMoney(subtotalLine)}
                               </td>
                               <td
                                 style={{

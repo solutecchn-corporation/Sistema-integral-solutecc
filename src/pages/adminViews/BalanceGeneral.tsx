@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { formatMoney } from '../../lib/formatMoney';
 import supabase from "../../lib/supabaseClient";
 
 type Cuenta = {
@@ -223,7 +224,7 @@ export default function BalanceGeneral() {
                           fontWeight: 500,
                         }}
                       >
-                        L {item.saldo.toFixed(2)}
+                        L {formatMoney(item.saldo)}
                       </td>
                     </tr>
                   ))
@@ -233,7 +234,7 @@ export default function BalanceGeneral() {
                     TOTAL ACTIVOS
                   </td>
                   <td style={{ padding: "12px 0 8px 0", textAlign: "right" }}>
-                    L {totalActivos.toFixed(2)}
+                    L {formatMoney(totalActivos)}
                   </td>
                 </tr>
               </tbody>
@@ -285,7 +286,7 @@ export default function BalanceGeneral() {
                           fontWeight: 500,
                         }}
                       >
-                        L {item.saldo.toFixed(2)}
+                        L {formatMoney(item.saldo)}
                       </td>
                     </tr>
                   ))
@@ -295,7 +296,7 @@ export default function BalanceGeneral() {
                     Total Pasivos
                   </td>
                   <td style={{ padding: "8px 0", textAlign: "right" }}>
-                    L {totalPasivos.toFixed(2)}
+                    L {formatMoney(totalPasivos)}
                   </td>
                 </tr>
               </tbody>
@@ -343,7 +344,7 @@ export default function BalanceGeneral() {
                           fontWeight: 500,
                         }}
                       >
-                        L {item.saldo.toFixed(2)}
+                        L {formatMoney(item.saldo)}
                       </td>
                     </tr>
                   ))
@@ -353,7 +354,7 @@ export default function BalanceGeneral() {
                     Total Patrimonio
                   </td>
                   <td style={{ padding: "8px 0", textAlign: "right" }}>
-                    L {totalPatrimonio.toFixed(2)}
+                    L {formatMoney(totalPatrimonio)}
                   </td>
                 </tr>
                 <tr style={{ borderTop: "2px solid #6b21a8", fontWeight: 700 }}>
@@ -361,7 +362,7 @@ export default function BalanceGeneral() {
                     TOTAL PASIVO + PATRIMONIO
                   </td>
                   <td style={{ padding: "12px 0 8px 0", textAlign: "right" }}>
-                    L {totalPasivosPatrimonio.toFixed(2)}
+                    L {formatMoney(totalPasivosPatrimonio)}
                   </td>
                 </tr>
               </tbody>

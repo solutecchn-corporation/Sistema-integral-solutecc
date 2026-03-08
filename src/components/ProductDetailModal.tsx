@@ -46,7 +46,7 @@ export default function ProductDetailModal({
       // e.g. "/storage/v1/object/public/<BUCKET>/path/to/file.png"
       let objectPath = src;
       const m = String(src).match(
-        /\/storage\/v1\/object\/public\/([^/]+)\/(.*)/
+        /\/storage\/v1\/object\/public\/([^/]+)\/(.*)/,
       );
       if (m) {
         objectPath = decodeURIComponent(m[2]);
@@ -77,7 +77,7 @@ export default function ProductDetailModal({
         if (signed.error) {
           console.warn(
             "ProductDetailModal createSignedUrl error",
-            signed.error
+            signed.error,
           );
           if (mounted) setImgSrc(null);
           return;
@@ -109,7 +109,7 @@ export default function ProductDetailModal({
         setUrlCheck(
           `HEAD ${res.status} ${
             res.statusText
-          } - content-type: ${res.headers.get("content-type")}`
+          } - content-type: ${res.headers.get("content-type")}`,
         );
       } catch (err: any) {
         if (!mounted) return;
@@ -264,6 +264,6 @@ export default function ProductDetailModal({
       </div>
     </div>,
     (typeof document !== "undefined" && document.body) ||
-      document.createElement("div")
+      document.createElement("div"),
   );
 }

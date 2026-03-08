@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { formatMoney } from '../../lib/formatMoney';
 import supabase from '../../lib/supabaseClient';
 
 export default function FacturasView() {
@@ -97,11 +98,11 @@ export default function FacturasView() {
         </div>
         <div style={{ background: 'white', padding: 16, borderRadius: 8 }}>
           <div style={{ fontSize: 12, color: '#64748b' }}>Total venta</div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>L {totalSum.toFixed(2)}</div>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>L {formatMoney(totalSum)}</div>
         </div>
         <div style={{ background: 'white', padding: 16, borderRadius: 8 }}>
           <div style={{ fontSize: 12, color: '#64748b' }}>Promedio por factura</div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>L { (totalCount ? (totalSum / totalCount) : 0).toFixed(2) }</div>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>L { formatMoney(totalCount ? (totalSum / totalCount) : 0) }</div>
         </div>
         <div style={{ background: 'white', padding: 16, borderRadius: 8 }}>
           <div style={{ fontSize: 12, color: '#64748b' }}>Artículos vendidos</div>
@@ -125,7 +126,7 @@ export default function FacturasView() {
               <tr key={v.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                 <td style={{ padding: 12 }}>{v.factura}</td>
                 <td style={{ padding: 12 }}>{v.fecha_venta ? new Date(v.fecha_venta).toLocaleString() : '-'}</td>
-                <td style={{ padding: 12, textAlign: 'right' }}>L {Number(v.total || 0).toFixed(2)}</td>
+                <td style={{ padding: 12, textAlign: 'right' }}>L {formatMoney(Number(v.total || 0))}</td>
                 <td style={{ padding: 12 }}>{v.nombre_cliente || v.cliente_id || '-'}</td>
                 <td style={{ padding: 12 }}>{v.estado}</td>
               </tr>

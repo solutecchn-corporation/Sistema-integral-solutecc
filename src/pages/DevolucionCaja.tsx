@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { formatMoney } from '../lib/formatMoney';
 import NotasCreditoModal from "../components/NotasCreditoModal";
 import ModalWrapper from "../components/ModalWrapper";
 import Confirmado from "../components/Confirmado";
@@ -1355,10 +1356,10 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
                             {Number(p.cantidad).toFixed(2)}
                           </td>
                           <td style={{ padding: "12px 14px" }}>
-                            L{Number(p.precio_unitario || 0).toFixed(2)}
+                            L{formatMoney(Number(p.precio_unitario || 0))}
                           </td>
                           <td style={{ padding: "12px 14px" }}>
-                            L{Number(p.subtotal || 0).toFixed(2)}
+                            L{formatMoney(Number(p.subtotal || 0))}
                           </td>
                           <td style={{ padding: "12px 14px" }}>
                             <button

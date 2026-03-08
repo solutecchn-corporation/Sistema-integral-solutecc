@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { formatMoney } from '../../lib/formatMoney';
 import supabase from '../../lib/supabaseClient';
 import ModalWrapper from '../../components/ModalWrapper';
 import generateCotizacionHTML from '../../lib/cotizaconhtmlimp';
@@ -220,11 +221,11 @@ export default function Cotizaciones() {
         </div>
         <div style={{ background: 'white', padding: 12, borderRadius: 8, minWidth: 160 }}>
           <div style={{ color: '#475569', fontSize: 12 }}>Suma total</div>
-          <div style={{ fontSize: 20, fontWeight: 600 }}>L {totalSum.toFixed(2)}</div>
+          <div style={{ fontSize: 20, fontWeight: 600 }}>L {formatMoney(totalSum)}</div>
         </div>
         <div style={{ background: 'white', padding: 12, borderRadius: 8, minWidth: 160 }}>
           <div style={{ color: '#475569', fontSize: 12 }}>Promedio</div>
-          <div style={{ fontSize: 20, fontWeight: 600 }}>L {avg.toFixed(2)}</div>
+          <div style={{ fontSize: 20, fontWeight: 600 }}>L {formatMoney(avg)}</div>
         </div>
         <div style={{ background: 'white', padding: 12, borderRadius: 8, minWidth: 220 }}>
           <div style={{ color: '#475569', fontSize: 12 }}>Por estado</div>
@@ -270,7 +271,7 @@ export default function Cotizaciones() {
                       <td style={{ padding: 10 }}>{c.numero_cotizacion || c.numero || c.id}</td>
                       <td style={{ padding: 10 }}>{c.fecha_cotizacion ? new Date(c.fecha_cotizacion).toLocaleString() : (c.fecha ? new Date(c.fecha).toLocaleString() : '')}</td>
                       <td style={{ padding: 10 }}>{c.cliente_nombre || c.cliente || ''}</td>
-                    <td style={{ padding: 10, textAlign: 'right' }}>L {Number(c.total || 0).toFixed(2)}</td>
+                    <td style={{ padding: 10, textAlign: 'right' }}>L {formatMoney(Number(c.total || 0))}</td>
                     <td style={{ padding: 10 }}>{c.estado || ''}</td>
                     <td style={{ padding: 10 }}>
                       <button className="btn-opaque" onClick={() => openCotizacionDetail(c)}>Ver detalle</button>
@@ -297,7 +298,7 @@ export default function Cotizaciones() {
                 <div><strong>#:</strong> {selected.numero_cotizacion || selected.numero || selected.id}</div>
                 <div><strong>Fecha:</strong> {selected.fecha_cotizacion ? new Date(selected.fecha_cotizacion).toLocaleString() : (selected.fecha ? new Date(selected.fecha).toLocaleString() : '')}</div>
                 <div><strong>Cliente:</strong> {selected.cliente_nombre || selected.cliente || ''}</div>
-                <div><strong>Total:</strong> L {Number(selected.total || 0).toFixed(2)}</div>
+                <div><strong>Total:</strong> L {formatMoney(Number(selected.total || 0))}</div>
               </div>
 
               <div style={{ overflowX: 'auto' }}>
@@ -329,8 +330,8 @@ export default function Cotizaciones() {
                             ) : null}
                           </td>
                           <td style={{ padding: 8 }}>{cantidad}</td>
-                          <td style={{ padding: 8 }}>L {precio.toFixed(2)}</td>
-                          <td style={{ padding: 8, textAlign: 'right' }}>L {subtotal.toFixed(2)}</td>
+                          <td style={{ padding: 8 }}>L {formatMoney(precio)}</td>
+                          <td style={{ padding: 8, textAlign: 'right' }}>L {formatMoney(subtotal)}</td>
                         </tr>
                       );
                     })}

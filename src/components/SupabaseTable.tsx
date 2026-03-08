@@ -127,7 +127,7 @@ export default function SupabaseTable({
         const v = row?.[c];
         if (v == null) return false;
         return String(v).toLowerCase().includes(q);
-      })
+      }),
     );
   }, [data, query, searchColumns, displayedColumns]);
 
@@ -154,7 +154,8 @@ export default function SupabaseTable({
         "inventario";
 
       const payload = { ...formData };
-      const oldImage = formMode === "edit" ? formInitial?.imagen ?? null : null;
+      const oldImage =
+        formMode === "edit" ? (formInitial?.imagen ?? null) : null;
       const getStoragePath = (img: string | null) => {
         if (!img) return null;
         // If it's already a storage path (not a full url), return it
@@ -175,7 +176,7 @@ export default function SupabaseTable({
             : String(Date.now()));
         const filename = `${table}/${namePrefix}/${Date.now()}_${file.name.replace(
           /[^a-zA-Z0-9.\-_/]/g,
-          "_"
+          "_",
         )}`;
 
         const uploadRes = await sup.storage
@@ -367,7 +368,7 @@ export default function SupabaseTable({
                         console.debug(
                           "SupabaseTable: row has no imagen for id",
                           row?.id,
-                          row
+                          row,
                         );
                       return (
                         <td
@@ -421,7 +422,9 @@ export default function SupabaseTable({
       <RecordFormModal
         open={formOpen}
         title={formMode === "add" ? `Agregar a ${table}` : `Editar ${table}`}
-        columns={(formColumns ?? displayedColumns).filter((c) => !formExclude.includes(c))}
+        columns={(formColumns ?? displayedColumns).filter(
+          (c) => !formExclude.includes(c),
+        )}
         initialData={formInitial}
         onClose={() => setFormOpen(false)}
         onSave={handleSave}
@@ -515,7 +518,7 @@ function Thumbnail({ src }: { src: string }) {
       // Normalize possible storage public path: '/storage/v1/object/public/<BUCKET>/path'
       let objectPath = src;
       const m = String(src).match(
-        /\/storage\/v1\/object\/public\/([^/]+)\/(.*)/
+        /\/storage\/v1\/object\/public\/([^/]+)\/(.*)/,
       );
       if (m) {
         objectPath = decodeURIComponent(m[2]);

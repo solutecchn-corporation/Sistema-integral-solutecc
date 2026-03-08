@@ -1,4 +1,5 @@
 import React from 'react'
+import { formatMoney } from '../lib/formatMoney';
 import getCompanyData from '../lib/getCompanyData'
 
 export type MovimientoForPrint = {
@@ -56,7 +57,7 @@ export async function printMovimientoReceipt(m: MovimientoForPrint) {
           </table>
           <div class="line"></div>
           <table>
-            <tr><td class="total">Total</td><td class="right total">L${Number(m.monto).toFixed(2)}</td></tr>
+            <tr><td class="total">Total</td><td class="right total">L${formatMoney(Number(m.monto))}</td></tr>
           </table>
           <div style="height:22px"></div>
           <div style="font-size:12px;color:#64748b">Usuario: ${escapeHtml(String(m.usuario ?? '-'))}</div>
@@ -115,7 +116,7 @@ export default function ReciboPrinterPreview({ movimiento }: { movimiento: Movim
     <div style={{ padding: 12, border: '1px solid #e6eef6', borderRadius: 8, background: '#fff' }}>
       <div style={{ fontWeight: 700, marginBottom: 6 }}>Recibo (vista previa)</div>
       <div style={{ fontSize: 13, color: '#475569' }}>{movimiento.concepto}</div>
-      <div style={{ marginTop: 8 }}><strong>Total:</strong> L{movimiento.monto.toFixed(2)}</div>
+      <div style={{ marginTop: 8 }}><strong>Total:</strong> L{formatMoney(movimiento.monto)}</div>
       <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>Usuario: {movimiento.usuario}</div>
     </div>
   )

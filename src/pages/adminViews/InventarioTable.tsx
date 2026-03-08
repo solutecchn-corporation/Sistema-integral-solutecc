@@ -27,23 +27,23 @@ export default function InventarioTable() {
         const res = await sup
           .from("inventario")
           .select(
-            "id,categoria,marca,publicacion_web,exento,aplica_impuesto_18,aplica_impuesto_turistico,tipo"
+            "id,categoria,marca,publicacion_web,exento,aplica_impuesto_18,aplica_impuesto_turistico,tipo",
           );
         if (!mounted) return;
         const rows = Array.isArray(res.data) ? res.data : [];
         const categoriasSet = new Set(
-          rows.map((r: any) => r.categoria ?? "").filter(Boolean)
+          rows.map((r: any) => r.categoria ?? "").filter(Boolean),
         );
         const marcasSet = new Set(
-          rows.map((r: any) => r.marca ?? "").filter(Boolean)
+          rows.map((r: any) => r.marca ?? "").filter(Boolean),
         );
         const items = rows.length;
         const productos = rows.filter(
-          (r: any) => (r.tipo || "producto") === "producto"
+          (r: any) => (r.tipo || "producto") === "producto",
         ).length;
         const servicios = rows.filter((r: any) => r.tipo === "servicio").length;
         const publicadas = rows.filter((r: any) =>
-          Boolean(r.publicacion_web)
+          Boolean(r.publicacion_web),
         ).length;
         const isExento = (v: any) => {
           if (v == null) return false;
@@ -61,10 +61,10 @@ export default function InventarioTable() {
         };
         const exentos = rows.filter((r: any) => isExento(r.exento)).length;
         const aplica18 = rows.filter((r: any) =>
-          isExento(r.aplica_impuesto_18)
+          isExento(r.aplica_impuesto_18),
         ).length;
         const aplicaTur = rows.filter((r: any) =>
-          isExento(r.aplica_impuesto_turistico)
+          isExento(r.aplica_impuesto_turistico),
         ).length;
         setSummary({
           categorias: categoriasSet.size,
@@ -264,7 +264,15 @@ export default function InventarioTable() {
   );
 }
 
-function Card({ label, value, hidden }: { label: string; value: string; hidden?: boolean }) {
+function Card({
+  label,
+  value,
+  hidden,
+}: {
+  label: string;
+  value: string;
+  hidden?: boolean;
+}) {
   if (hidden) return null;
   return (
     <div

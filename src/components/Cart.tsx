@@ -1,4 +1,5 @@
 import React from 'react'
+import { formatMoney } from '../lib/formatMoney';
 
 type Producto = {
   id: string;
@@ -100,22 +101,22 @@ export default function Cart({ carrito, actualizarCantidad, eliminarDelCarrito, 
           background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
           border: '2px solid #0ea5e9',
           borderRadius: 12,
-          padding: 16,
-          marginBottom: 16
+          padding: '10px 12px',
+          marginBottom: 10
         }}>
           {/* Total Principal */}
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
-            fontSize: '1.5rem',
+            fontSize: '1.4rem',
             fontWeight: 800,
-            marginBottom: 12,
+            marginBottom: 6,
             color: '#0c4a6e',
-            paddingBottom: 12,
+            paddingBottom: 6,
             borderBottom: '2px dashed #0ea5e9'
           }}>
             <span>TOTAL:</span>
-            <span>L{total.toFixed(2)}</span>
+            <span>L{formatMoney(total)}</span>
           </div>
 
           {/* Subtotal */}
@@ -123,32 +124,24 @@ export default function Cart({ carrito, actualizarCantidad, eliminarDelCarrito, 
             display: 'flex',
             justifyContent: 'space-between',
             fontWeight: 600,
-            fontSize: 14,
+            fontSize: 11,
             color: '#475569',
-            marginBottom: 6
+            marginBottom: 3
           }}>
             <span>Subtotal:</span>
-            <span>L{subtotal.toFixed(2)}</span>
+            <span>L{formatMoney(subtotal)}</span>
           </div>
 
           {/* Impuestos */}
-          <div style={{ fontSize: 13, color: '#64748b', marginTop: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
               <span>ISV ({(taxRate * 100)}%):</span>
-              <strong style={{ color: '#475569' }}>L{(Number(perItemTaxes.reduce((s, it) => s + (it.isv || 0), 0))).toFixed(2)}</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span>Impuesto 18%:</span>
-              <strong style={{ color: '#475569' }}>L{(Number(perItemTaxes.reduce((s, it) => s + (it.imp18 || 0), 0))).toFixed(2)}</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Imp. Turístico ({(taxTouristRate * 100)}%):</span>
-              <strong style={{ color: '#475569' }}>L{(Number(perItemTaxes.reduce((s, it) => s + (it.tur || 0), 0))).toFixed(2)}</strong>
+              <strong style={{ color: '#475569' }}>L{formatMoney((Number(perItemTaxes.reduce((s, it) => s + (it.isv || 0), 0))))}</strong>
             </div>
           </div>
 
           {/* Desglose por ítem */}
-          <details style={{ marginTop: 12 }}>
+          <details style={{ marginTop: 6 }}>
             <summary style={{
               cursor: 'pointer',
               fontSize: 12,
@@ -172,7 +165,7 @@ export default function Cart({ carrito, actualizarCantidad, eliminarDelCarrito, 
                 }}>
                   <div style={{ color: '#0f172a', fontWeight: 600 }}>{it.nombre}</div>
                   <div style={{ color: '#64748b', fontSize: 10 }}>
-                    ISV: L{it.isv.toFixed(2)} • 18%: L{it.imp18.toFixed(2)} • Tur: L{it.tur.toFixed(2)}
+                    ISV: L{formatMoney(it.isv)} • 18%: L{formatMoney(it.imp18)} • Tur: L{formatMoney(it.tur)}
                   </div>
                 </div>
               ))}
@@ -180,17 +173,17 @@ export default function Cart({ carrito, actualizarCantidad, eliminarDelCarrito, 
           </details>
 
           {/* Botones de acción */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
             <button
               onClick={() => openSelector('cotizacion')}
               className="btn-opaque"
               style={{
                 background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
                 color: 'white',
-                padding: '12px 16px',
+                padding: '9px 12px',
                 borderRadius: 10,
                 fontWeight: 700,
-                fontSize: 14,
+                fontSize: 13,
                 border: 'none',
                 boxShadow: '0 4px 8px rgba(245, 158, 11, 0.3)',
                 transition: 'all 0.2s ease'
@@ -212,10 +205,10 @@ export default function Cart({ carrito, actualizarCantidad, eliminarDelCarrito, 
               style={{
                 background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                 color: 'white',
-                padding: '12px 16px',
+                padding: '9px 12px',
                 borderRadius: 10,
                 fontWeight: 700,
-                fontSize: 14,
+                fontSize: 13,
                 border: 'none',
                 boxShadow: '0 4px 8px rgba(16, 185, 129, 0.3)',
                 transition: 'all 0.2s ease'
@@ -251,9 +244,14 @@ export default function Cart({ carrito, actualizarCantidad, eliminarDelCarrito, 
         </div>
       ) : (
         <div style={{
-          maxHeight: '40vh',
+          maxHeight: '50vh',
+          minHeight: 80,
           overflowY: 'auto',
-          paddingRight: 4
+          paddingRight: 4,
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#0ea5e9 #f1f5f9',
+          borderTop: '1px solid #e2e8f0',
+          paddingTop: 8
         }}>
           {carrito.map((item, idx) => (
             <div
@@ -262,8 +260,8 @@ export default function Cart({ carrito, actualizarCantidad, eliminarDelCarrito, 
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '12px',
-                marginBottom: 8,
+                padding: '8px 10px',
+                marginBottom: 5,
                 background: idx % 2 === 0 ? 'white' : '#f8fafc',
                 borderRadius: 10,
                 border: '1px solid #e2e8f0',
@@ -281,7 +279,7 @@ export default function Cart({ carrito, actualizarCantidad, eliminarDelCarrito, 
               }}
             >
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1e293b', marginBottom: 4 }}>
+                <div style={{ fontWeight: 600, fontSize: '0.8rem', color: '#1e293b', marginBottom: 2 }}>
                   {item.producto.nombre}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
@@ -294,7 +292,7 @@ export default function Cart({ carrito, actualizarCantidad, eliminarDelCarrito, 
                   }}>
                     {item.producto.sku}
                   </code>
-                  <span style={{ marginLeft: 8 }}>L{(Number(item.producto.precio || 0)).toFixed(2)} c/u</span>
+                  <span style={{ marginLeft: 8 }}>L{formatMoney((Number(item.producto.precio || 0)))} c/u</span>
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

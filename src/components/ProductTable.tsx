@@ -1,4 +1,5 @@
 import React from "react";
+import { formatMoney } from '../lib/formatMoney';
 
 type Producto = {
   id: string;
@@ -342,7 +343,7 @@ export default function ProductTable({
                   <span
                     style={{ fontWeight: 700, color: "#059669", fontSize: 14 }}
                   >
-                    L{Number(prod.precio || 0).toFixed(2)}
+                    L{formatMoney(Number(prod.precio || 0))}
                   </span>
                 </td>
                 <td

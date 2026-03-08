@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { formatMoney } from '../lib/formatMoney';
 import supabase from "../lib/supabaseClient";
 import ModalWrapper from "../components/ModalWrapper";
 import Confirmado from "../components/Confirmado";
@@ -518,7 +519,7 @@ export default function AnulacionFactura({ onBack }: { onBack: () => void }) {
                         {item.cantidad}
                       </td>
                       <td style={{ textAlign: "right", padding: "12px" }}>
-                        L {Number(item.precio_unitario).toFixed(2)}
+                        L {formatMoney(Number(item.precio_unitario))}
                       </td>
                       <td
                         style={{
@@ -527,7 +528,7 @@ export default function AnulacionFactura({ onBack }: { onBack: () => void }) {
                           fontWeight: 500,
                         }}
                       >
-                        L {Number(item.subtotal).toFixed(2)}
+                        L {formatMoney(Number(item.subtotal))}
                       </td>
                     </tr>
                   ))}
@@ -555,7 +556,7 @@ export default function AnulacionFactura({ onBack }: { onBack: () => void }) {
               >
                 <span style={{ color: "#64748b" }}>Subtotal:</span>
                 <span style={{ fontWeight: 500 }}>
-                  L {Number(invoiceData.subtotal).toFixed(2)}
+                  L {formatMoney(Number(invoiceData.subtotal))}
                 </span>
               </div>
               <div
@@ -567,7 +568,7 @@ export default function AnulacionFactura({ onBack }: { onBack: () => void }) {
               >
                 <span style={{ color: "#64748b" }}>Impuesto:</span>
                 <span style={{ fontWeight: 500 }}>
-                  L {Number(invoiceData.impuesto).toFixed(2)}
+                  L {formatMoney(Number(invoiceData.impuesto))}
                 </span>
               </div>
               <div
@@ -590,7 +591,7 @@ export default function AnulacionFactura({ onBack }: { onBack: () => void }) {
                     fontSize: "16px",
                   }}
                 >
-                  L {Number(invoiceData.total).toFixed(2)}
+                  L {formatMoney(Number(invoiceData.total))}
                 </span>
               </div>
             </div>

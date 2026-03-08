@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { formatMoney } from '../../lib/formatMoney';
 import supabase from "../../lib/supabaseClient";
 
 export default function RepDevoluciones() {
@@ -349,7 +350,7 @@ export default function RepDevoluciones() {
                     {r.tipo_devolucion}
                   </td>
                   <td style={{ padding: 12, fontSize: 13 }}>
-                    L {Number(r.total || 0).toFixed(2)}
+                    L {formatMoney(Number(r.total || 0))}
                   </td>
                 </tr>
               ))
@@ -369,7 +370,7 @@ export default function RepDevoluciones() {
                 <td style={{ padding: 12, fontSize: 13 }}></td>
                 <td style={{ padding: 12, fontSize: 13 }}></td>
                 <td style={{ padding: 12, fontSize: 13 }}>
-                  L {totalGeneral.toFixed(2)}
+                  L {formatMoney(totalGeneral)}
                 </td>
               </tr>
             )}

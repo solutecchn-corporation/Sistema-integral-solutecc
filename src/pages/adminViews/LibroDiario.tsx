@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { formatMoney } from '../../lib/formatMoney';
 import supabase from "../../lib/supabaseClient";
 
 type AsientoContable = {
@@ -551,7 +552,7 @@ export default function LibroDiario() {
                     textAlign: "right",
                   }}
                 >
-                  L {totalDebe.toFixed(2)}
+                  L {formatMoney(totalDebe)}
                 </td>
                 <td
                   style={{
@@ -560,7 +561,7 @@ export default function LibroDiario() {
                     textAlign: "right",
                   }}
                 >
-                  L {totalHaber.toFixed(2)}
+                  L {formatMoney(totalHaber)}
                 </td>
               </tr>
             )}
@@ -585,7 +586,7 @@ export default function LibroDiario() {
                     textAlign: "right",
                   }}
                 >
-                  L {Math.abs(diferencia).toFixed(2)}{" "}
+                  L {formatMoney(Math.abs(diferencia))}{" "}
                   {diferencia === 0
                     ? "(Cuadrado)"
                     : diferencia > 0

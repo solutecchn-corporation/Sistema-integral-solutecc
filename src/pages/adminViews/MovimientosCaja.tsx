@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { formatMoney } from '../../lib/formatMoney';
 import supabase from '../../lib/supabaseClient';
 import useHondurasTime from '../../lib/useHondurasTime';
 
@@ -149,7 +150,7 @@ export default function MovimientosCaja() {
                   <tr key={m.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: 10 }}>{m.concepto || m.motivo || m.descripcion || ''}</td>
                     <td style={{ padding: 10 }}>{m.referencia || ''}</td>
-                    <td style={{ padding: 10, textAlign: 'right' }}>L {Number(m.monto || 0).toFixed(2)}</td>
+                    <td style={{ padding: 10, textAlign: 'right' }}>L {formatMoney(Number(m.monto || 0))}</td>
                     <td style={{ padding: 10 }}>{m.fecha ? new Date(m.fecha).toLocaleString() : ''}</td>
                     <td style={{ padding: 10 }}>{m.usuario || m.user || ''}</td>
                     <td style={{ padding: 10 }}>{m.tipo_movimiento || m.tipo || ''}</td>

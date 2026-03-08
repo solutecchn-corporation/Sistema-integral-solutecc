@@ -58,7 +58,8 @@ export default function RecordFormModal({
     if (col === "codigo_barras") return null;
 
     // Ocultar campos de impuestos
-    if (col === "aplica_impuesto_18" || col === "aplica_impuesto_turistico") return null;
+    if (col === "aplica_impuesto_18" || col === "aplica_impuesto_turistico")
+      return null;
 
     if (col === "id") {
       return <input className="input" value={form[col] ?? ""} readOnly />;
@@ -220,16 +221,16 @@ export default function RecordFormModal({
               const rendered = renderInput(col);
               if (rendered === null) return null;
               return (
-              <label key={col} style={{ display: "block" }}>
-                <div
-                  style={{ fontSize: 12, color: "#374151", marginBottom: 6 }}
-                >
-                  {col === "sku"
-                    ? "CODIGO"
-                    : String(col).replace(/_/g, " ").toUpperCase()}
-                </div>
-                {rendered}
-              </label>
+                <label key={col} style={{ display: "block" }}>
+                  <div
+                    style={{ fontSize: 12, color: "#374151", marginBottom: 6 }}
+                  >
+                    {col === "sku"
+                      ? "CODIGO"
+                      : String(col).replace(/_/g, " ").toUpperCase()}
+                  </div>
+                  {rendered}
+                </label>
               );
             })}
           </div>
@@ -262,6 +263,6 @@ export default function RecordFormModal({
   return createPortal(
     modal,
     (typeof document !== "undefined" && document.body) ||
-      document.createElement("div")
+      document.createElement("div"),
   );
 }
