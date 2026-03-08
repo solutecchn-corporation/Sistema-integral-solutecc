@@ -2279,8 +2279,39 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       } catch (e) {}
     };
     window.addEventListener("cotizacion:load", handler as EventListener);
+
+    // Listener para cargar pedidos en línea al carrito
+    const pedidoHandler = (ev: Event) => {
+      try {
+        const ce = ev as CustomEvent;
+        const payload = ce.detail;
+        if (!payload || !Array.isArray(payload.detalles)) return;
+        const items: ItemCarrito[] = payload.detalles.map((d: any) => {
+          const prodMatch = productos.find((p) => String(p.id) === String(d.producto_id));
+          const producto: Producto = prodMatch
+            ? { ...prodMatch }
+            : {
+                id: String(d.producto_id || "temp-" + Math.random().toString(36).slice(2, 8)),
+                sku: d.sku ?? undefined,
+                nombre: d.descripcion || "Artículo",
+                precio: Number(d.precio_unitario || 0),
+                categoria: undefined,
+                exento: false,
+                aplica_impuesto_18: false,
+                aplica_impuesto_turistico: false,
+                stock: 0,
+                imagen: undefined,
+              };
+          return { producto, cantidad: Number(d.cantidad || 1) };
+        });
+        if (items.length > 0) setCarrito(items);
+      } catch (e) {}
+    };
+    window.addEventListener("pedido:cargar", pedidoHandler as EventListener);
+
     return () => {
       window.removeEventListener("cotizacion:load", handler as EventListener);
+      window.removeEventListener("pedido:cargar", pedidoHandler as EventListener);
     };
   }, [productos]);
 
