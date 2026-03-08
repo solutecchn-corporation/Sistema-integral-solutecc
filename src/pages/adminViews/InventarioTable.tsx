@@ -128,10 +128,12 @@ export default function InventarioTable() {
         <Card
           label="Aplica impuesto 18%"
           value={summary ? String(summary.aplica_impuesto_18) : "..."}
+          hidden
         />
         <Card
           label="Impuesto turístico"
           value={summary ? String(summary.aplica_impuesto_turistico) : "..."}
+          hidden
         />
       </div>
 
@@ -222,17 +224,10 @@ export default function InventarioTable() {
           columns={[
             "imagen",
             "sku",
-            "nombre",
-            "tipo",
+            "descripcion",
             "marca",
             "modelo",
             "categoria",
-            "descripcion",
-            "publicacion_web",
-            "exento",
-            "aplica_impuesto_18",
-            "aplica_impuesto_turistico",
-            "creado_en",
           ]}
           searchColumns={[
             "nombre",
@@ -241,7 +236,13 @@ export default function InventarioTable() {
             "codigo_barras",
             "modelo",
           ]}
-          formExclude={["codigo_barras", "creado_en"]}
+          formExclude={[
+            "codigo_barras",
+            "creado_en",
+            "aplica_impuesto_18",
+            "aplica_impuesto_turistico",
+          ]}
+          fieldOptions={{ categoria: categoriasList }}
           allowAdd={true}
           allowEdit={true}
           allowDelete={true}
@@ -251,7 +252,8 @@ export default function InventarioTable() {
   );
 }
 
-function Card({ label, value }: { label: string; value: string }) {
+function Card({ label, value, hidden }: { label: string; value: string; hidden?: boolean }) {
+  if (hidden) return null;
   return (
     <div
       style={{

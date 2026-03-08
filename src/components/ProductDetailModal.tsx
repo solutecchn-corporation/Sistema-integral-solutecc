@@ -153,10 +153,21 @@ export default function ProductDetailModal({
                 {Object.keys(rows).map((k) => {
                   const v = rows[k];
                   if (k === "imagen" && typeof v === "string") return null;
+                  // Ocultar campos de impuestos y codigo de barras
+                  if (
+                    k === "aplica_impuesto_18" ||
+                    k === "aplica_impuesto_turistico" ||
+                    k === "codigo_barras"
+                  )
+                    return null;
+                  const label =
+                    k === "sku"
+                      ? "CODIGO"
+                      : String(k).replace(/_/g, " ").toUpperCase();
                   return (
                     <tr key={k}>
                       <td style={{ fontWeight: 700, padding: 6, width: 160 }}>
-                        {String(k).replace(/_/g, " ").toUpperCase()}
+                        {label}
                       </td>
                       <td style={{ padding: 6 }}>{String(v ?? "-")}</td>
                     </tr>

@@ -160,7 +160,7 @@ export default function Stock() {
       >
         <input
           className="input"
-          placeholder="Filtro SKU"
+          placeholder="Filtro Codigo"
           value={sku}
           onChange={(e) => setSku(e.target.value)}
         />
@@ -234,7 +234,7 @@ export default function Stock() {
             <thead>
               <tr>
                 <th>Imagen</th>
-                <th>SKU</th>
+                <th>Codigo</th>
                 <th>Marca</th>
                 <th>Modelo</th>
                 <th>Descripción</th>

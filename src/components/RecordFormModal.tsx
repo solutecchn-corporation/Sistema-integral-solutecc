@@ -8,6 +8,7 @@ type Props = {
   initialData?: any;
   onClose: () => void;
   onSave: (data: any) => Promise<void>;
+  fieldOptions?: Record<string, string[]>;
 };
 
 export default function RecordFormModal({
@@ -17,6 +18,7 @@ export default function RecordFormModal({
   initialData = {},
   onClose,
   onSave,
+  fieldOptions = {},
 }: Props) {
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
@@ -51,6 +53,12 @@ export default function RecordFormModal({
   const renderInput = (col: string) => {
     // Hide creado_en from the form (we rely on DB default NOW())
     if (col === "creado_en") return null;
+
+    // Ocultar campo codigo de barra
+    if (col === "codigo_barras") return null;
+
+    // Ocultar campos de impuestos
+    if (col === "aplica_impuesto_18" || col === "aplica_impuesto_turistico") return null;
 
     if (col === "id") {
       return <input className="input" value={form[col] ?? ""} readOnly />;
@@ -92,21 +100,26 @@ export default function RecordFormModal({
       );
     }
 
-    // Make `categoria` a select with fixed options; keep other categoria-like fields as text
+    // Make `categoria` a combobox: permite escribir o seleccionar existentes
     if (col === "categoria") {
+      const opts = fieldOptions?.[col] ?? [];
       return (
-        <select
-          className="input"
-          value={form[col] ?? ""}
-          onChange={(e) =>
-            handleChange(col, e.target.value === "" ? null : e.target.value)
-          }
-        >
-          <option value="">-- Seleccionar categoría --</option>
-          <option value="SERVICIO">SERVICIO</option>
-          <option value="REPUESTO">REPUESTO</option>
-          <option value="PRODUCTO">PRODUCTO</option>
-        </select>
+        <>
+          <input
+            list="datalist-categoria"
+            className="input"
+            value={form[col] ?? ""}
+            onChange={(e) =>
+              handleChange(col, e.target.value === "" ? null : e.target.value)
+            }
+            placeholder="Seleccionar o escribir categoría"
+          />
+          <datalist id="datalist-categoria">
+            {opts.map((o) => (
+              <option key={o} value={o} />
+            ))}
+          </datalist>
+        </>
       );
     }
 
@@ -203,16 +216,22 @@ export default function RecordFormModal({
           <div
             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
           >
-            {columns.map((col) => (
+            {columns.map((col) => {
+              const rendered = renderInput(col);
+              if (rendered === null) return null;
+              return (
               <label key={col} style={{ display: "block" }}>
                 <div
                   style={{ fontSize: 12, color: "#374151", marginBottom: 6 }}
                 >
-                  {String(col).replace(/_/g, " ").toUpperCase()}
+                  {col === "sku"
+                    ? "CODIGO"
+                    : String(col).replace(/_/g, " ").toUpperCase()}
                 </div>
-                {renderInput(col)}
+                {rendered}
               </label>
-            ))}
+              );
+            })}
           </div>
 
           <div

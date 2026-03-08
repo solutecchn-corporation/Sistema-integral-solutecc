@@ -17,6 +17,7 @@ type Props = {
   allowEdit?: boolean;
   allowDelete?: boolean;
   formExclude?: string[]; // columns to exclude from the add/edit form
+  fieldOptions?: Record<string, string[]>; // options for combo fields (e.g. categoria)
 };
 
 export default function SupabaseTable({
@@ -32,6 +33,7 @@ export default function SupabaseTable({
   allowEdit = false,
   allowDelete = false,
   formExclude = [],
+  fieldOptions = {},
 }: Props) {
   const [data, setData] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -344,7 +346,9 @@ export default function SupabaseTable({
               <tr>
                 {displayedColumns.map((col) => (
                   <th key={col}>
-                    {String(col).replace(/_/g, " ").toUpperCase()}
+                    {col === "sku"
+                      ? "CODIGO"
+                      : String(col).replace(/_/g, " ").toUpperCase()}
                   </th>
                 ))}
                 <th style={{ width: 140 }}>Acciones</th>
@@ -385,8 +389,9 @@ export default function SupabaseTable({
                       <td
                         key={col}
                         style={{
-                          maxWidth: 420,
+                          maxWidth: 320,
                           wordBreak: "break-word" as any,
+                          whiteSpace: "normal",
                         }}
                       >
                         {formatCell(row[col])}
@@ -418,6 +423,7 @@ export default function SupabaseTable({
         initialData={formInitial}
         onClose={() => setFormOpen(false)}
         onSave={handleSave}
+        fieldOptions={fieldOptions}
       />
 
       <ProductDetailModal
