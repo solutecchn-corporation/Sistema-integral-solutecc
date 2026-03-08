@@ -6,8 +6,9 @@ import Placeholder from "./Placeholder"; // Asumiendo que el componente Placehol
 // Importar todos los componentes de vista para el renderizado
 import Dashboard from "./adminViews/Dashboard";
 import DatosEmpresa from "./adminViews/DatosEmpresa";
-import UsuariosWeb from "./adminViews/UsuariosWeb";
 import UsuariosCajeros from "./UsuariosCajeros";
+import UsuariosWeb from "./adminViews/UsuariosWeb";
+import PedidosWeb from "./adminViews/PedidosWeb";
 import CAI from "./adminViews/CAI";
 import Facturas from "./adminViews/Facturas";
 // HistorialFacturas view intentionally removed from menu; component kept as stub
@@ -50,6 +51,7 @@ const VIEW_COMPONENTS: Record<string, React.FC<any>> = {
   datos: DatosEmpresa,
   usuarios_internal: UsuariosCajeros,
   usuarios_web: UsuariosWeb,
+  pedidos_web: PedidosWeb,
   cai: CAIView,
   facturas: Facturas,
 
@@ -95,7 +97,7 @@ export default function PanelAdmin({ onLogout }: { onLogout: () => void }) {
   const [active, setActive] = useState("dashboard");
   const [subActive, setSubActive] = useState<string | null>(null);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>(
-    {}
+    {},
   );
 
   // Lógica para determinar el ID de la vista actual (subActive tiene prioridad)
@@ -109,7 +111,7 @@ export default function PanelAdmin({ onLogout }: { onLogout: () => void }) {
       if (parent.id === id) return parent.label;
       if (parent.children) {
         const child = parent.children.find(
-          (c: { id: string; label?: string }) => c.id === id
+          (c: { id: string; label?: string }) => c.id === id,
         );
         if (child) return child.label;
       }
@@ -133,11 +135,8 @@ export default function PanelAdmin({ onLogout }: { onLogout: () => void }) {
       if (!expandedMenus[mi.id]) {
         setActive(mi.id);
         setSubActive(mi.children[0].id);
-      } else {
-        // Si se cierra el menú, mantener active en el padre sin subActive
-        setActive(mi.id);
-        setSubActive(null);
       }
+      // Al cerrar el acordeón, NO limpiar subActive para que la vista activa siga visible
     } else {
       // Navegación directa para menús sin hijos
       setActive(mi.id);

@@ -50,6 +50,30 @@ export default function UsuariosCajeros() {
     nombre_usuario: string;
     role: string;
   }) {
+    // --- Validaciones de seguridad ---
+    const rawUser = localStorage.getItem("user");
+    const currentUser = rawUser ? JSON.parse(rawUser) : null;
+    const currentUserId = currentUser?.id;
+
+    if (editUser) {
+      // 1. El admin no puede degradar su propio rol
+      if (editUser.id === currentUserId && data.role !== "admin") {
+        throw new Error(
+          "No puedes cambiar tu propio rol de administrador. Permanece como admin o pide a otro administrador que lo haga.",
+        );
+      }
+      // 2. No puede cambiarse el rol del último administrador
+      if (editUser.role === "admin" && data.role !== "admin") {
+        const adminCount = users.filter((u) => u.role === "admin").length;
+        if (adminCount <= 1) {
+          throw new Error(
+            "No se puede cambiar el rol del único administrador del sistema. Debe existir al menos un administrador activo.",
+          );
+        }
+      }
+    }
+    // --- Fin validaciones ---
+
     setLoading(true);
     try {
       if (editUser) {

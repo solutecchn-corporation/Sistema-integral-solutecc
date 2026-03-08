@@ -1,9 +1,5 @@
-// Function to filter menu items based on web integration setting
+// Function to get menu items
 export function getFilteredMenuItems(): any[] {
-  const webIntegrationEnabled =
-    typeof localStorage !== "undefined" &&
-    localStorage.getItem("webIntegrationEnabled") === "true";
-
   const allMenuItems: any[] = [
     { id: "dashboard", label: "Dashboard" },
     { id: "datos", label: "Datos de mi empresa" },
@@ -12,10 +8,7 @@ export function getFilteredMenuItems(): any[] {
       label: "Usuarios / Cajeros",
       children: [
         { id: "usuarios_internal", label: "Usuarios Cajeros" },
-        ...(webIntegrationEnabled
-          ? [{ id: "usuarios_web", label: "Usuarios web (usuarios_web)" }]
-          : []),
-        { id: "clientes", label: "Clientes (clientes)" },
+        { id: "clientes", label: "Clientes Jurídicos" },
       ],
     },
     {
@@ -64,22 +57,14 @@ export function getFilteredMenuItems(): any[] {
         },
       ],
     },
-    ...(webIntegrationEnabled
-      ? [
-          {
-            id: "pedidos",
-            label: "Pedidos web / Ecommerce",
-            children: [
-              { id: "pedidos_web", label: "Pedidos web (pedidos_web)" },
-              {
-                id: "pedidos_detalle",
-                label: "Detalle de pedidos (pedidos_web_detalle)",
-              },
-              { id: "pagos_web", label: "Pagos web (pagos_web)" },
-            ],
-          },
-        ]
-      : []),
+    {
+      id: "gestion_web",
+      label: "Gestión página web",
+      children: [
+        { id: "usuarios_web", label: "Usuarios web" },
+        { id: "pedidos_web", label: "Pedidos web / Ecommerce" },
+      ],
+    },
     {
       // Submenu removed; items moved under 'factura'
 

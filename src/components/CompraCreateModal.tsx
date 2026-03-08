@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { formatMoney } from '../lib/formatMoney';
+import { formatMoney } from "../lib/formatMoney";
 import supabase from "../lib/supabaseClient";
 import { hondurasNowISO } from "../lib/useHondurasTime";
 
@@ -244,12 +244,12 @@ export default function CompraCreateModal({ open, onClose, onCreated }: Props) {
         if (regRes.error) {
           console.warn(
             "Error registrando en registro_de_inventario",
-            regRes.error
+            regRes.error,
           );
           // not critical: we don't rollback compra, but inform user
           setError(
             "Compra guardada, pero falló el registro en inventario: " +
-              regRes.error.message
+              regRes.error.message,
           );
         }
       } catch (e) {
@@ -301,7 +301,7 @@ export default function CompraCreateModal({ open, onClose, onCreated }: Props) {
           style={{
             padding: "24px 28px",
             borderBottom: "1px solid #e2e8f0",
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            background: "#1e40af",
           }}
         >
           <h3

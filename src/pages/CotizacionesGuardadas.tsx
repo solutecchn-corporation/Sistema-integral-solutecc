@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { formatMoney } from '../lib/formatMoney';
+import { formatMoney } from "../lib/formatMoney";
 import supabase from "../lib/supabaseClient";
 import generateCotizacionHTML from "../lib/cotizaconhtmlimp";
 import ModalWrapper from "../components/ModalWrapper";
@@ -73,7 +73,7 @@ export default function CotizacionesGuardadas({
 
       // resolver nombres de cliente para mostrar en la tabla
       const clienteIds = Array.from(
-        new Set(baseRows.map((r) => (r as any).cliente_id).filter(Boolean))
+        new Set(baseRows.map((r) => (r as any).cliente_id).filter(Boolean)),
       );
       let clienteMap: Record<string, string> = {};
       if (clienteIds.length > 0) {
@@ -170,7 +170,7 @@ export default function CotizacionesGuardadas({
       try {
         // also dispatch a window event so PuntoDeVentas can react immediately
         window.dispatchEvent(
-          new CustomEvent("cotizacion:load", { detail: payload })
+          new CustomEvent("cotizacion:load", { detail: payload }),
         );
       } catch (e) {
         // ignore
@@ -264,31 +264,38 @@ export default function CotizacionesGuardadas({
       // Abrir en nueva ventana/pestaña para que funcione correctamente en móviles/tablets
       try {
         // Detectar si es móvil/tablet
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
+        const isMobile =
+          /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+            navigator.userAgent,
+          );
+
         if (isMobile) {
           // En móviles: usar blob URL para abrir en nueva pestaña
-          const blob = new Blob([html], { type: 'text/html' });
+          const blob = new Blob([html], { type: "text/html" });
           const url = URL.createObjectURL(blob);
-          const newWindow = window.open(url, '_blank');
-          
+          const newWindow = window.open(url, "_blank");
+
           if (newWindow) {
             // Limpiar el blob URL después de un tiempo
             setTimeout(() => URL.revokeObjectURL(url), 10000);
-            
+
             // Intentar imprimir automáticamente después de cargar
-            newWindow.addEventListener('load', () => {
+            newWindow.addEventListener("load", () => {
               setTimeout(() => {
                 try {
                   newWindow.print();
                 } catch (e) {
-                  console.debug("Auto-print no disponible en este navegador móvil");
+                  console.debug(
+                    "Auto-print no disponible en este navegador móvil",
+                  );
                 }
               }, 500);
             });
           } else {
             // Fallback si el popup fue bloqueado
-            alert("Por favor, permite ventanas emergentes para imprimir la cotización");
+            alert(
+              "Por favor, permite ventanas emergentes para imprimir la cotización",
+            );
           }
         } else {
           // En desktop: abrir ventana normal
@@ -297,7 +304,7 @@ export default function CotizacionesGuardadas({
             printWindow.document.open();
             printWindow.document.write(html);
             printWindow.document.close();
-            
+
             // Esperar a que carguen las imágenes antes de imprimir
             const imgs = printWindow.document.images;
             if (imgs && imgs.length > 0) {
@@ -315,7 +322,7 @@ export default function CotizacionesGuardadas({
                   }, 300);
                 }
               };
-              
+
               for (let i = 0; i < imgs.length; i++) {
                 const img = imgs[i] as HTMLImageElement;
                 if (img.complete) {
@@ -337,12 +344,16 @@ export default function CotizacionesGuardadas({
               }, 300);
             }
           } else {
-            alert("Por favor, permite ventanas emergentes para imprimir la cotización");
+            alert(
+              "Por favor, permite ventanas emergentes para imprimir la cotización",
+            );
           }
         }
       } catch (e) {
         console.error("Error abriendo ventana de impresión:", e);
-        alert("Error al abrir la ventana de impresión. Por favor, verifica los permisos de ventanas emergentes.");
+        alert(
+          "Error al abrir la ventana de impresión. Por favor, verifica los permisos de ventanas emergentes.",
+        );
       }
     } catch (e) {
       console.warn("Error reprinting cotizacion", e);
@@ -969,10 +980,12 @@ export default function CotizacionesGuardadas({
                         }}
                       >
                         L{" "}
-                        {formatMoney(Number(
-                          d.subtotal ||
-                            (d.precio_unitario || 0) * (d.cantidad || 0)
-                        ))}
+                        {formatMoney(
+                          Number(
+                            d.subtotal ||
+                              (d.precio_unitario || 0) * (d.cantidad || 0),
+                          ),
+                        )}
                       </td>
                       <td
                         style={{
@@ -983,9 +996,11 @@ export default function CotizacionesGuardadas({
                         }}
                       >
                         L{" "}
-                        {formatMoney(Number(
-                          d.total || (d.subtotal || 0) - (d.descuento || 0)
-                        ))}
+                        {formatMoney(
+                          Number(
+                            d.total || (d.subtotal || 0) - (d.descuento || 0),
+                          ),
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -1267,9 +1282,9 @@ export default function CotizacionesGuardadas({
                       </td>
                       <td style={{ padding: "12px 16px" }}>
                         L{" "}
-                        {formatMoney(Number(
-                          (d.precio_unitario || 0) * (d.cantidad || 0)
-                        ))}
+                        {formatMoney(
+                          Number((d.precio_unitario || 0) * (d.cantidad || 0)),
+                        )}
                       </td>
                     </tr>
                   ))}

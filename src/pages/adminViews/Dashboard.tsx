@@ -82,14 +82,14 @@ export default function DashboardView() {
           testError.message?.includes("policy")
         ) {
           throw new Error(
-            "Las políticas RLS están bloqueando el acceso.\n\nVerifica en Supabase Dashboard → Authentication → Policies:\n1. Que las políticas existen\n2. Que están habilitadas\n3. O desactiva RLS temporalmente para testing"
+            "Las políticas RLS están bloqueando el acceso.\n\nVerifica en Supabase Dashboard → Authentication → Policies:\n1. Que las políticas existen\n2. Que están habilitadas\n3. O desactiva RLS temporalmente para testing",
           );
         }
 
         throw new Error(
           `Error al consultar ventas: ${
             testError.message || testError.code
-          }\n\nDetalles: ${JSON.stringify(testError, null, 2)}`
+          }\n\nDetalles: ${JSON.stringify(testError, null, 2)}`,
         );
       }
 
@@ -165,25 +165,27 @@ export default function DashboardView() {
 
       const ingresosHoy = movimientosHoy
         .filter(
-          (m) => (m.tipo_movimiento || m.tipo || "").toLowerCase() === "ingreso"
+          (m) =>
+            (m.tipo_movimiento || m.tipo || "").toLowerCase() === "ingreso",
         )
         .reduce((sum, m) => sum + Number(m.monto || 0), 0);
 
       const egresosHoy = movimientosHoy
         .filter(
-          (m) => (m.tipo_movimiento || m.tipo || "").toLowerCase() === "egreso"
+          (m) => (m.tipo_movimiento || m.tipo || "").toLowerCase() === "egreso",
         )
         .reduce((sum, m) => sum + Number(m.monto || 0), 0);
 
       const ingresosMes = movimientosMes
         .filter(
-          (m) => (m.tipo_movimiento || m.tipo || "").toLowerCase() === "ingreso"
+          (m) =>
+            (m.tipo_movimiento || m.tipo || "").toLowerCase() === "ingreso",
         )
         .reduce((sum, m) => sum + Number(m.monto || 0), 0);
 
       const egresosMes = movimientosMes
         .filter(
-          (m) => (m.tipo_movimiento || m.tipo || "").toLowerCase() === "egreso"
+          (m) => (m.tipo_movimiento || m.tipo || "").toLowerCase() === "egreso",
         )
         .reduce((sum, m) => sum + Number(m.monto || 0), 0);
 
@@ -196,7 +198,7 @@ export default function DashboardView() {
       const productosFisicos =
         productos?.filter((p) => p.tipo === "producto" || !p.tipo) || [];
       const stockBajo = productosFisicos.filter(
-        (p) => (p.stock || 0) < 10
+        (p) => (p.stock || 0) < 10,
       ).length;
       const valorInventario = productosFisicos.reduce((sum, p) => {
         return sum + Number(p.precio || 0) * Number(p.stock || 0);
@@ -244,22 +246,22 @@ export default function DashboardView() {
         ventasHoy: ventasHoy.length,
         ventasHoyTotal: ventasHoy.reduce(
           (sum, v) => sum + Number(v.total || 0),
-          0
+          0,
         ),
         ventasMes: ventasMes.length,
         ventasMesTotal: ventasMes.reduce(
           (sum, v) => sum + Number(v.total || 0),
-          0
+          0,
         ),
         comprasHoy: comprasHoy.length,
         comprasHoyTotal: comprasHoy.reduce(
           (sum, c) => sum + Number(c.total || 0),
-          0
+          0,
         ),
         comprasMes: comprasMes.length,
         comprasMesTotal: comprasMes.reduce(
           (sum, c) => sum + Number(c.total || 0),
-          0
+          0,
         ),
         ingresosHoy,
         egresosHoy,
@@ -416,49 +418,88 @@ ON caja_movimientos FOR SELECT USING (true);`}
     (stats?.egresosMes || 0);
 
   return (
-    <div style={{ padding: 24, background: "#f8fafc", minHeight: "100vh" }}>
+    <div style={{ padding: 24, background: "#f1f5f9", minHeight: "100vh" }}>
       {/* Header */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: 24,
+          marginBottom: 28,
+          paddingBottom: 18,
+          borderBottom: "1px solid #e2e8f0",
         }}
       >
-        <h2 style={{ margin: 0, fontSize: 28, color: "#0f172a" }}>
-          📊 Dashboard Ejecutivo
-        </h2>
+        <div>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: "1.5rem",
+              fontWeight: 700,
+              color: "#0f172a",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            Dashboard Ejecutivo
+          </h2>
+          <p
+            style={{ margin: "4px 0 0", color: "#64748b", fontSize: "0.85rem" }}
+          >
+            Resumen operativo del período actual
+          </p>
+        </div>
         <button
           onClick={loadDashboardData}
           style={{
-            padding: "10px 20px",
-            background: "#3b82f6",
+            padding: "8px 18px",
+            background: "#1e40af",
             color: "white",
             border: "none",
-            borderRadius: 8,
+            borderRadius: 7,
             cursor: "pointer",
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: 600,
-            boxShadow: "0 2px 4px rgba(59,130,246,0.3)",
+            letterSpacing: "0.01em",
           }}
         >
-          🔄 Actualizar
+          Actualizar datos
         </button>
       </div>
 
       {/* Ventas */}
-      <div style={{ marginBottom: 16 }}>
-        <h3
+      <div style={{ marginBottom: 20 }}>
+        <div
           style={{
-            margin: "0 0 12px 0",
-            fontSize: 16,
-            color: "#64748b",
-            fontWeight: 500,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 14,
+            paddingBottom: 8,
+            borderBottom: "1px solid #e2e8f0",
           }}
         >
-          💰 VENTAS
-        </h3>
+          <span
+            style={{
+              display: "inline-block",
+              width: 3,
+              height: 16,
+              background: "#1e40af",
+              borderRadius: 2,
+            }}
+          />
+          <h3
+            style={{
+              margin: 0,
+              fontSize: "0.72rem",
+              color: "#64748b",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+            }}
+          >
+            Ventas
+          </h3>
+        </div>
         <div
           style={{
             display: "grid",
@@ -557,7 +598,7 @@ ON caja_movimientos FOR SELECT USING (true);`}
               {formatCurrency(
                 stats?.ventasMes && stats.ventasMes > 0
                   ? stats.ventasMesTotal / stats.ventasMes
-                  : 0
+                  : 0,
               )}
             </div>
             <div style={{ fontSize: 12, color: "#8b5cf6", marginTop: 4 }}>
@@ -568,17 +609,39 @@ ON caja_movimientos FOR SELECT USING (true);`}
       </div>
 
       {/* Compras y Gastos */}
-      <div style={{ marginBottom: 16 }}>
-        <h3
+      <div style={{ marginBottom: 20 }}>
+        <div
           style={{
-            margin: "0 0 12px 0",
-            fontSize: 16,
-            color: "#64748b",
-            fontWeight: 500,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 14,
+            paddingBottom: 8,
+            borderBottom: "1px solid #e2e8f0",
           }}
         >
-          📦 COMPRAS Y GASTOS
-        </h3>
+          <span
+            style={{
+              display: "inline-block",
+              width: 3,
+              height: 16,
+              background: "#b45309",
+              borderRadius: 2,
+            }}
+          />
+          <h3
+            style={{
+              margin: 0,
+              fontSize: "0.72rem",
+              color: "#64748b",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+            }}
+          >
+            Compras y Gastos
+          </h3>
+        </div>
         <div
           style={{
             display: "grid",
@@ -683,17 +746,39 @@ ON caja_movimientos FOR SELECT USING (true);`}
       </div>
 
       {/* Ingresos y Métricas */}
-      <div style={{ marginBottom: 16 }}>
-        <h3
+      <div style={{ marginBottom: 20 }}>
+        <div
           style={{
-            margin: "0 0 12px 0",
-            fontSize: 16,
-            color: "#64748b",
-            fontWeight: 500,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 14,
+            paddingBottom: 8,
+            borderBottom: "1px solid #e2e8f0",
           }}
         >
-          💵 INGRESOS Y MÉTRICAS
-        </h3>
+          <span
+            style={{
+              display: "inline-block",
+              width: 3,
+              height: 16,
+              background: "#0f766e",
+              borderRadius: 2,
+            }}
+          />
+          <h3
+            style={{
+              margin: 0,
+              fontSize: "0.72rem",
+              color: "#64748b",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+            }}
+          >
+            Ingresos y Métricas
+          </h3>
+        </div>
         <div
           style={{
             display: "grid",
@@ -801,16 +886,38 @@ ON caja_movimientos FOR SELECT USING (true);`}
 
       {/* Inventario */}
       <div style={{ marginBottom: 24 }}>
-        <h3
+        <div
           style={{
-            margin: "0 0 12px 0",
-            fontSize: 16,
-            color: "#64748b",
-            fontWeight: 500,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 14,
+            paddingBottom: 8,
+            borderBottom: "1px solid #e2e8f0",
           }}
         >
-          📦 INVENTARIO
-        </h3>
+          <span
+            style={{
+              display: "inline-block",
+              width: 3,
+              height: 16,
+              background: "#6d28d9",
+              borderRadius: 2,
+            }}
+          />
+          <h3
+            style={{
+              margin: 0,
+              fontSize: "0.72rem",
+              color: "#64748b",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+            }}
+          >
+            Inventario
+          </h3>
+        </div>
         <div
           style={{
             display: "grid",
@@ -902,12 +1009,15 @@ ON caja_movimientos FOR SELECT USING (true);`}
           <h3
             style={{
               marginTop: 0,
-              marginBottom: 16,
-              fontSize: 16,
+              marginBottom: 14,
+              fontSize: "0.85rem",
+              fontWeight: 700,
               color: "#0f172a",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
             }}
           >
-            🏆 Top 5 Productos (Monto)
+            Top 5 Productos
           </h3>
           {topProductos.length === 0 ? (
             <div
@@ -967,12 +1077,15 @@ ON caja_movimientos FOR SELECT USING (true);`}
           <h3
             style={{
               marginTop: 0,
-              marginBottom: 16,
-              fontSize: 16,
+              marginBottom: 14,
+              fontSize: "0.85rem",
+              fontWeight: 700,
               color: "#0f172a",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
             }}
           >
-            🧾 Últimas Ventas
+            Últimas Ventas
           </h3>
           {ventasRecientes.length === 0 ? (
             <div
@@ -1052,12 +1165,15 @@ ON caja_movimientos FOR SELECT USING (true);`}
           <h3
             style={{
               marginTop: 0,
-              marginBottom: 16,
-              fontSize: 16,
+              marginBottom: 14,
+              fontSize: "0.85rem",
+              fontWeight: 700,
               color: "#0f172a",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
             }}
           >
-            📦 Últimas Compras
+            Últimas Compras
           </h3>
           {comprasRecientes.length === 0 ? (
             <div
@@ -1129,12 +1245,15 @@ ON caja_movimientos FOR SELECT USING (true);`}
           <h3
             style={{
               marginTop: 0,
-              marginBottom: 16,
-              fontSize: 16,
+              marginBottom: 14,
+              fontSize: "0.85rem",
+              fontWeight: 700,
               color: "#0f172a",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
             }}
           >
-            💵 Últimos Movimientos
+            Últimos Movimientos
           </h3>
           {movimientosRecientes.length === 0 ? (
             <div

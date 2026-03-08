@@ -37,7 +37,7 @@ const ESTADO_BADGE: Record<
   enviado: { label: "Tomado", bg: "#dbeafe", color: "#1e40af" },
 };
 
-export default function PedidosEnLinea({ onBack }: { onBack: () => void }) {
+export default function PedidosEnLinea({ onBack }: { onBack?: () => void }) {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -185,7 +185,7 @@ export default function PedidosEnLinea({ onBack }: { onBack: () => void }) {
       window.dispatchEvent(
         new CustomEvent("pedido:cargar", { detail: payload }),
       );
-      onBack();
+      if (onBack) onBack();
     } catch (e: any) {
       alert("Error al tomar pedido: " + (e?.message || String(e)));
       setActionLoading(null);
@@ -257,13 +257,15 @@ export default function PedidosEnLinea({ onBack }: { onBack: () => void }) {
           >
             Recargar
           </button>
-          <button
-            onClick={onBack}
-            className="btn-opaque"
-            style={{ fontSize: 13 }}
-          >
-            Volver
-          </button>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="btn-opaque"
+              style={{ fontSize: 13 }}
+            >
+              Volver
+            </button>
+          )}
         </div>
       </header>
 
