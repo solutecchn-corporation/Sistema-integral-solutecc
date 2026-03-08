@@ -17,6 +17,7 @@ type Props = {
   allowEdit?: boolean;
   allowDelete?: boolean;
   formExclude?: string[]; // columns to exclude from the add/edit form
+  formColumns?: string[]; // if set, overrides displayedColumns for the add/edit form
   fieldOptions?: Record<string, string[]>; // options for combo fields (e.g. categoria)
 };
 
@@ -33,6 +34,7 @@ export default function SupabaseTable({
   allowEdit = false,
   allowDelete = false,
   formExclude = [],
+  formColumns,
   fieldOptions = {},
 }: Props) {
   const [data, setData] = useState<any[] | null>(null);
@@ -419,7 +421,7 @@ export default function SupabaseTable({
       <RecordFormModal
         open={formOpen}
         title={formMode === "add" ? `Agregar a ${table}` : `Editar ${table}`}
-        columns={displayedColumns.filter((c) => !formExclude.includes(c))}
+        columns={(formColumns ?? displayedColumns).filter((c) => !formExclude.includes(c))}
         initialData={formInitial}
         onClose={() => setFormOpen(false)}
         onSave={handleSave}

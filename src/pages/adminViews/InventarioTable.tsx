@@ -236,6 +236,18 @@ export default function InventarioTable() {
             "codigo_barras",
             "modelo",
           ]}
+          formColumns={[
+            "sku",
+            "nombre",
+            "descripcion",
+            "marca",
+            "modelo",
+            "categoria",
+            "tipo",
+            "publicacion_web",
+            "exento",
+            "imagen",
+          ]}
           formExclude={[
             "codigo_barras",
             "creado_en",
