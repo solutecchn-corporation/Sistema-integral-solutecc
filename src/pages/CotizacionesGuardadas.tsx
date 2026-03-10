@@ -4,6 +4,8 @@ import supabase from "../lib/supabaseClient";
 import generateCotizacionHTML from "../lib/cotizaconhtmlimp";
 import ModalWrapper from "../components/ModalWrapper";
 import Confirmado from "../components/Confirmado";
+import PrintOrEmailModal from "../components/PrintOrEmailModal";
+import EmailFacturaModal from "../components/EmailFacturaModal";
 
 type Cotizacion = {
   id: number;
@@ -59,6 +61,80 @@ export default function CotizacionesGuardadas({
   const [successOpen, setSuccessOpen] = useState(false);
   const [errorOpen, setErrorOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  // ── Delivery modal (Imprimir / Correo) para cotizaciones guardadas ───────────
+  const [showDeliveryCG, setShowDeliveryCG] = useState(false);
+  const [pendingHtmlPrintCG, setPendingHtmlPrintCG] = useState("");
+  const [pendingHtmlEmailCG, setPendingHtmlEmailCG] = useState("");
+  const [pendingEmailHintCG, setPendingEmailHintCG] = useState("");
+  const [showEmailCG, setShowEmailCG] = useState(false);
+
+  const doPrintHtmlCG = async (html: string) => {
+    const isMobile =
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent,
+      );
+    if (isMobile) {
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, "_blank");
+      if (win) {
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        win.addEventListener("load", () => {
+          setTimeout(() => {
+            try {
+              win.print();
+            } catch (e) {}
+          }, 500);
+        });
+      } else {
+        alert(
+          "Por favor, permite ventanas emergentes para imprimir la cotización",
+        );
+      }
+    } else {
+      const pw = window.open("", "_blank", "width=800,height=600");
+      if (pw) {
+        pw.document.open();
+        pw.document.write(html);
+        pw.document.close();
+        const imgs = pw.document.images;
+        if (imgs && imgs.length > 0) {
+          let loaded = 0;
+          const check = () => {
+            loaded++;
+            if (loaded === imgs.length)
+              setTimeout(() => {
+                try {
+                  pw.focus();
+                  pw.print();
+                } catch (e) {}
+              }, 300);
+          };
+          for (let i = 0; i < imgs.length; i++) {
+            const img = imgs[i] as HTMLImageElement;
+            if (img.complete) {
+              check();
+            } else {
+              img.addEventListener("load", check);
+              img.addEventListener("error", check);
+            }
+          }
+        } else {
+          setTimeout(() => {
+            try {
+              pw.focus();
+              pw.print();
+            } catch (e) {}
+          }, 300);
+        }
+      } else {
+        alert(
+          "Por favor, permite ventanas emergentes para imprimir la cotización",
+        );
+      }
+    }
+  };
 
   const fetchRows = async () => {
     setLoading(true);
@@ -261,100 +337,40 @@ export default function CotizacionesGuardadas({
 
       const html = await generateCotizacionHTML(opts, "cotizacion", params);
 
-      // Abrir en nueva ventana/pestaña para que funcione correctamente en móviles/tablets
+      // Generar versión única para correo (sin inlinear logo)
+      const htmlEmail = await generateCotizacionHTML(
+        { ...opts, inlineLogo: false },
+        "cotizacion",
+        params,
+      );
+
+      // Intentar obtener email del cliente por RTN o cliente_id
+      let emailHint = "";
       try {
-        // Detectar si es móvil/tablet
-        const isMobile =
-          /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-            navigator.userAgent,
-          );
-
-        if (isMobile) {
-          // En móviles: usar blob URL para abrir en nueva pestaña
-          const blob = new Blob([html], { type: "text/html" });
-          const url = URL.createObjectURL(blob);
-          const newWindow = window.open(url, "_blank");
-
-          if (newWindow) {
-            // Limpiar el blob URL después de un tiempo
-            setTimeout(() => URL.revokeObjectURL(url), 10000);
-
-            // Intentar imprimir automáticamente después de cargar
-            newWindow.addEventListener("load", () => {
-              setTimeout(() => {
-                try {
-                  newWindow.print();
-                } catch (e) {
-                  console.debug(
-                    "Auto-print no disponible en este navegador móvil",
-                  );
-                }
-              }, 500);
-            });
-          } else {
-            // Fallback si el popup fue bloqueado
-            alert(
-              "Por favor, permite ventanas emergentes para imprimir la cotización",
-            );
-          }
-        } else {
-          // En desktop: abrir ventana normal
-          const printWindow = window.open("", "_blank", "width=800,height=600");
-          if (printWindow) {
-            printWindow.document.open();
-            printWindow.document.write(html);
-            printWindow.document.close();
-
-            // Esperar a que carguen las imágenes antes de imprimir
-            const imgs = printWindow.document.images;
-            if (imgs && imgs.length > 0) {
-              let loaded = 0;
-              const checkLoaded = () => {
-                loaded++;
-                if (loaded === imgs.length) {
-                  setTimeout(() => {
-                    try {
-                      printWindow.focus();
-                      printWindow.print();
-                    } catch (e) {
-                      console.warn("Error al imprimir:", e);
-                    }
-                  }, 300);
-                }
-              };
-
-              for (let i = 0; i < imgs.length; i++) {
-                const img = imgs[i] as HTMLImageElement;
-                if (img.complete) {
-                  checkLoaded();
-                } else {
-                  img.addEventListener("load", checkLoaded);
-                  img.addEventListener("error", checkLoaded);
-                }
-              }
-            } else {
-              // Sin imágenes, imprimir directamente
-              setTimeout(() => {
-                try {
-                  printWindow.focus();
-                  printWindow.print();
-                } catch (e) {
-                  console.warn("Error al imprimir:", e);
-                }
-              }, 300);
-            }
-          } else {
-            alert(
-              "Por favor, permite ventanas emergentes para imprimir la cotización",
-            );
-          }
+        if ((hd as any).cliente_id) {
+          const { data: cliData } = await supabase
+            .from("clientes")
+            .select("correo_electronico")
+            .eq("id", (hd as any).cliente_id)
+            .maybeSingle();
+          if (cliData && (cliData as any).correo_electronico)
+            emailHint = (cliData as any).correo_electronico;
         }
-      } catch (e) {
-        console.error("Error abriendo ventana de impresión:", e);
-        alert(
-          "Error al abrir la ventana de impresión. Por favor, verifica los permisos de ventanas emergentes.",
-        );
-      }
+        if (!emailHint && (hd as any).rtn) {
+          const { data: cliData } = await supabase
+            .from("clientes")
+            .select("correo_electronico")
+            .eq("rtn", (hd as any).rtn)
+            .maybeSingle();
+          if (cliData && (cliData as any).correo_electronico)
+            emailHint = (cliData as any).correo_electronico;
+        }
+      } catch (e) {}
+
+      setPendingHtmlPrintCG(html);
+      setPendingHtmlEmailCG(htmlEmail);
+      setPendingEmailHintCG(emailHint);
+      setShowDeliveryCG(true);
     } catch (e) {
       console.warn("Error reprinting cotizacion", e);
     }
@@ -1312,6 +1328,32 @@ export default function CotizacionesGuardadas({
           </div>
         </ModalWrapper>
       )}
+
+      {/* Modal: Imprimir o Correo – cotizaciones guardadas */}
+      <PrintOrEmailModal
+        open={showDeliveryCG}
+        docType="cotizacion"
+        onClose={() => setShowDeliveryCG(false)}
+        onPrint={async () => {
+          setShowDeliveryCG(false);
+          await doPrintHtmlCG(pendingHtmlPrintCG);
+        }}
+        onEmail={() => {
+          setShowDeliveryCG(false);
+          setShowEmailCG(true);
+        }}
+      />
+
+      <EmailFacturaModal
+        open={showEmailCG}
+        docType="cotizacion"
+        initialEmail={pendingEmailHintCG}
+        htmlContent={pendingHtmlEmailCG}
+        onClose={() => setShowEmailCG(false)}
+        onAfterSend={async () => {
+          setShowEmailCG(false);
+        }}
+      />
     </div>
   );
 }

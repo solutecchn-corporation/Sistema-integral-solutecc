@@ -1,374 +1,699 @@
-import getCompanyData from './getCompanyData'
+import getCompanyData from "./getCompanyData";
 
 export async function generateFacturaHTML(
-	opts: any = {},
-	tipo: 'factura' | 'cotizacion' = 'factura',
-	params: any = {}
+  opts: any = {},
+  tipo: "factura" | "cotizacion" = "factura",
+  params: any = {},
 ): Promise<string> {
-	let comercio = opts.comercio || ''
-	// `rtnEmp` is the company's RTN; do not use opts.rtn (client RTN) for this
-	let rtnEmp = opts.companyRTN || opts.rtnEmpresa || opts.RTN || ''
-	let direccion = opts.direccion || ''
-	let telefono = opts.telefono || ''
-	let EM = opts.email || opts.EM || ''
-	let logoSrc = opts.logo || opts.logoUrl || opts.logo_src || null
+  let comercio = opts.comercio || "";
+  // `rtnEmp` is the company's RTN; do not use opts.rtn (client RTN) for this
+  let rtnEmp = opts.companyRTN || opts.rtnEmpresa || opts.RTN || "";
+  let direccion = opts.direccion || "";
+  let telefono = opts.telefono || "";
+  let EM = opts.email || opts.EM || "";
+  let logoSrc = opts.logo || opts.logoUrl || opts.logo_src || null;
 
-	// Si faltan datos importantes, intentar obtenerlos desde Supabase
-	if ((!comercio || !rtnEmp || !direccion || !telefono || !EM || !logoSrc)) {
-		try {
-			const company = await getCompanyData()
-			if (company) {
-				comercio = comercio || company.nombre || company.comercio || comercio
-				rtnEmp = rtnEmp || company.rtn || rtnEmp
-				direccion = direccion || company.direccion || company.direccion_fiscal || direccion
-				telefono = telefono || company.telefono || company.telefono_fijo || telefono
-				EM = EM || company.email || company.correo || EM
-				logoSrc = logoSrc || (company.logoUrl || company.logo) || logoSrc
-			}
-		} catch (e) {
-			// ignore errors fetching company data
-		}
-	}
+  // Si faltan datos importantes, intentar obtenerlos desde Supabase
+  if (!comercio || !rtnEmp || !direccion || !telefono || !EM || !logoSrc) {
+    try {
+      const company = await getCompanyData();
+      if (company) {
+        comercio = comercio || company.nombre || company.comercio || comercio;
+        rtnEmp = rtnEmp || company.rtn || rtnEmp;
+        direccion =
+          direccion ||
+          company.direccion ||
+          company.direccion_fiscal ||
+          direccion;
+        telefono =
+          telefono || company.telefono || company.telefono_fijo || telefono;
+        EM = EM || company.email || company.correo || EM;
+        logoSrc = logoSrc || company.logoUrl || company.logo || logoSrc;
+      }
+    } catch (e) {
+      // ignore errors fetching company data
+    }
+  }
 
-	// Intentar incrustar (inline) el logo como data URL para evitar problemas en impresión
-	if (logoSrc && typeof window !== 'undefined' && opts.inlineLogo !== false) {
-		try {
-			if (!String(logoSrc).startsWith('data:')) {
-				const resp = await fetch(String(logoSrc), { mode: 'cors' })
-				if (resp.ok) {
-					const blob = await resp.blob()
-					const dataUrl = await new Promise<string | null>((resolve) => {
-						const reader = new FileReader()
-						reader.onloadend = () => { resolve(typeof reader.result === 'string' ? reader.result : null) }
-						reader.onerror = () => { resolve(null) }
-						reader.readAsDataURL(blob)
-					})
-					if (dataUrl) logoSrc = dataUrl
-				}
-			}
-		} catch (e) {
-			// ignore fetch/convert errors and keep original logoSrc
-		}
-	}
-	let factura = opts.factura || ''
-	let CAI = opts.CAI || opts.cai || ''
-	let fechaLimiteEmision = opts.fechaLimiteEmision || opts.fecha_limite_emision || (opts.fecha_vencimiento || '')
-	let rangoAutorizadoDe = opts.rangoAutorizadoDe || opts.rango_desde || ''
-	let rangoAutorizadoHasta = opts.rangoAutorizadoHasta || opts.rango_hasta || ''
-	let identificador = opts.identificador || opts.identificadorCAI || ''
+  // Intentar incrustar (inline) el logo como data URL para evitar problemas en impresión
+  if (logoSrc && typeof window !== "undefined" && opts.inlineLogo !== false) {
+    try {
+      if (!String(logoSrc).startsWith("data:")) {
+        const resp = await fetch(String(logoSrc), { mode: "cors" });
+        if (resp.ok) {
+          const blob = await resp.blob();
+          const dataUrl = await new Promise<string | null>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              resolve(typeof reader.result === "string" ? reader.result : null);
+            };
+            reader.onerror = () => {
+              resolve(null);
+            };
+            reader.readAsDataURL(blob);
+          });
+          if (dataUrl) logoSrc = dataUrl;
+        }
+      }
+    } catch (e) {
+      // ignore fetch/convert errors and keep original logoSrc
+    }
+  }
+  let factura = opts.factura || "";
+  let CAI = opts.CAI || opts.cai || "";
+  let fechaLimiteEmision =
+    opts.fechaLimiteEmision ||
+    opts.fecha_limite_emision ||
+    opts.fecha_vencimiento ||
+    "";
+  let rangoAutorizadoDe = opts.rangoAutorizadoDe || opts.rango_desde || "";
+  let rangoAutorizadoHasta =
+    opts.rangoAutorizadoHasta || opts.rango_hasta || "";
+  let identificador = opts.identificador || opts.identificadorCAI || "";
 
-	// Si no se pasó factura en opts, la intentamos derivar desde CAI info
-	try {
-		let caiInfo: any = opts.caiInfo || null
-		if (!caiInfo && typeof window !== 'undefined') {
-			const raw = window.localStorage.getItem('caiInfo')
-			if (raw) {
-				try { caiInfo = JSON.parse(raw) } catch (e) { caiInfo = null }
-			}
-		}
-		if (caiInfo) {
-			// populate CAI and ranges from caiInfo when available
-			CAI = CAI || caiInfo.cai || caiInfo.CAI || ''
-			fechaLimiteEmision = fechaLimiteEmision || caiInfo.fecha_vencimiento || caiInfo.fecha_limite_emision || ''
-				rangoAutorizadoDe = rangoAutorizadoDe || caiInfo.rango_de || caiInfo.rangoDesde || ''
-				rangoAutorizadoHasta = rangoAutorizadoHasta || caiInfo.rango_hasta || caiInfo.rangoHasta || ''
-				identificador = identificador || caiInfo.identificador || ''
+  // Si no se pasó factura en opts, la intentamos derivar desde CAI info
+  try {
+    let caiInfo: any = opts.caiInfo || null;
+    if (!caiInfo && typeof window !== "undefined") {
+      const raw = window.localStorage.getItem("caiInfo");
+      if (raw) {
+        try {
+          caiInfo = JSON.parse(raw);
+        } catch (e) {
+          caiInfo = null;
+        }
+      }
+    }
+    if (caiInfo) {
+      // populate CAI and ranges from caiInfo when available
+      CAI = CAI || caiInfo.cai || caiInfo.CAI || "";
+      fechaLimiteEmision =
+        fechaLimiteEmision ||
+        caiInfo.fecha_vencimiento ||
+        caiInfo.fecha_limite_emision ||
+        "";
+      rangoAutorizadoDe =
+        rangoAutorizadoDe || caiInfo.rango_de || caiInfo.rangoDesde || "";
+      rangoAutorizadoHasta =
+        rangoAutorizadoHasta || caiInfo.rango_hasta || caiInfo.rangoHasta || "";
+      identificador = identificador || caiInfo.identificador || "";
 
-			// compute factura number from identificador + secuencia_actual or rango_de when factura not provided
-			if (!factura) {
-				try {
-					const identificador = caiInfo.identificador ? String(caiInfo.identificador) : ''
-					const seqRaw = caiInfo.secuencia_actual != null ? String(caiInfo.secuencia_actual) : (caiInfo.rango_de != null ? String(caiInfo.rango_de) : '')
-					// strip non-digits for numeric part
-					const numericPart = String(seqRaw).replace(/[^0-9]/g, '') || ''
-					let padWidth = 0
-					if (caiInfo.rango_hasta || caiInfo.rango_de) padWidth = Math.max(String(caiInfo.rango_hasta || caiInfo.rango_de).length, numericPart.length)
-					const padded = numericPart ? String(numericPart).padStart(padWidth || numericPart.length || 1, '0') : ''
-					factura = (identificador || '') + (padded || String(Math.floor(Math.random() * 900000) + 100000))
-				} catch (e) {
-					factura = String(Math.floor(Math.random() * 900000) + 100000)
-				}
-			}
-		}
-	} catch (e) {
-		// ignore cai parsing errors
-	}
+      // compute factura number from identificador + secuencia_actual or rango_de when factura not provided
+      if (!factura) {
+        try {
+          const identificador = caiInfo.identificador
+            ? String(caiInfo.identificador)
+            : "";
+          const seqRaw =
+            caiInfo.secuencia_actual != null
+              ? String(caiInfo.secuencia_actual)
+              : caiInfo.rango_de != null
+                ? String(caiInfo.rango_de)
+                : "";
+          // strip non-digits for numeric part
+          const numericPart = String(seqRaw).replace(/[^0-9]/g, "") || "";
+          let padWidth = 0;
+          if (caiInfo.rango_hasta || caiInfo.rango_de)
+            padWidth = Math.max(
+              String(caiInfo.rango_hasta || caiInfo.rango_de).length,
+              numericPart.length,
+            );
+          const padded = numericPart
+            ? String(numericPart).padStart(
+                padWidth || numericPart.length || 1,
+                "0",
+              )
+            : "";
+          factura =
+            (identificador || "") +
+            (padded || String(Math.floor(Math.random() * 900000) + 100000));
+        } catch (e) {
+          factura = String(Math.floor(Math.random() * 900000) + 100000);
+        }
+      }
+    }
+  } catch (e) {
+    // ignore cai parsing errors
+  }
 
-	// ensure factura has a value
-	if (!factura) factura = String(Math.floor(Math.random() * 900000) + 100000)
-	const cliente = opts.cliente || (tipo === 'factura' ? 'Consumidor Final' : 'Cotización Cliente')
-	// identidad = RTN del cliente (accept legacy `opts.rtn` as client RTN)
-	const identidad = opts.identidad || opts.rtnCliente || opts.clientRTN || opts.rtn || params.identidad || 'C/F'
-	const Ahora = new Date().toLocaleString()
+  // ensure factura has a value
+  if (!factura) factura = String(Math.floor(Math.random() * 900000) + 100000);
+  const cliente =
+    opts.cliente ||
+    (tipo === "factura" ? "Consumidor Final" : "Cotización Cliente");
+  // identidad = RTN del cliente (accept legacy `opts.rtn` as client RTN)
+  const identidad =
+    opts.identidad ||
+    opts.rtnCliente ||
+    opts.clientRTN ||
+    opts.rtn ||
+    params.identidad ||
+    "C/F";
+  const Ahora = new Date().toLocaleString();
 
-	const carrito = Array.isArray(params.carrito) ? params.carrito : []
-	const subtotal = typeof params.subtotal === 'number' ? params.subtotal : carrito.reduce((s: number, it: any) => s + (Number((it.producto && it.producto.precio) || it.precio || 0) * (it.cantidad || 1)), 0)
-	const DSC = typeof params.descuento === 'number' ? params.descuento : 0
-	const exonerado = typeof params.exonerado === 'number' ? params.exonerado : 0
-	const Gravado = typeof params.gravado === 'number' ? params.gravado : subtotal
-	const Exento = typeof params.exento === 'number' ? params.exento : 0
-	const impuesto = typeof params.isvTotal === 'number' ? params.isvTotal : 0
-	const ISV18 = typeof params.imp18Total === 'number' ? params.imp18Total : 0
-	const isv4 = typeof params.impTouristTotal === 'number' ? params.impTouristTotal : 0
-	// Determine gross total (totalFactura). Prefer explicit `params.total` if provided,
-	// otherwise compute as subtotal (net) + taxes passed in params.
-	const grossFromParams = typeof params.total === 'number' ? params.total : null
-	const computedGross = subtotal + (impuesto || 0) + (ISV18 || 0) + (isv4 || 0)
-	const transaccion = (grossFromParams != null) ? grossFromParams : computedGross
-	const ft = transaccion
+  const carrito = Array.isArray(params.carrito) ? params.carrito : [];
+  const subtotal =
+    typeof params.subtotal === "number"
+      ? params.subtotal
+      : carrito.reduce(
+          (s: number, it: any) =>
+            s +
+            Number((it.producto && it.producto.precio) || it.precio || 0) *
+              (it.cantidad || 1),
+          0,
+        );
+  // Calcular descuento total sumando el descuento de cada ítem del carrito
+  const DSC = (() => {
+    if (typeof params.descuento === "number" && params.descuento > 0)
+      return params.descuento;
+    return carrito.reduce((acc: number, it: any) => {
+      const precio = Number(
+        (it.producto && it.producto.precio) ||
+          it.precio_unitario ||
+          it.precio ||
+          0,
+      );
+      const cant = Number(it.cantidad || 1);
+      const pct = Number(it.descuento || 0);
+      return acc + precio * (pct / 100) * cant;
+    }, 0);
+  })();
+  const exonerado = typeof params.exonerado === "number" ? params.exonerado : 0;
+  const Gravado =
+    typeof params.gravado === "number" ? params.gravado : subtotal;
+  const Exento = typeof params.exento === "number" ? params.exento : 0;
+  const impuesto = typeof params.isvTotal === "number" ? params.isvTotal : 0;
+  const ISV18 = typeof params.imp18Total === "number" ? params.imp18Total : 0;
+  const isv4 =
+    typeof params.impTouristTotal === "number" ? params.impTouristTotal : 0;
+  // Determine gross total (totalFactura). Prefer explicit `params.total` if provided,
+  // otherwise compute as subtotal (net) + taxes passed in params.
+  const grossFromParams =
+    typeof params.total === "number" ? params.total : null;
+  const computedGross = subtotal + (impuesto || 0) + (ISV18 || 0) + (isv4 || 0);
+  const transaccion = grossFromParams != null ? grossFromParams : computedGross;
+  const ft = transaccion;
 
-	const pagos = params.pagos || {}
-	const Efectivo = typeof pagos.efectivo === 'number' ? pagos.efectivo : (typeof params.Efectivo === 'number' ? params.Efectivo : 0)
-	const Tarjeta = typeof pagos.tarjeta === 'number' ? pagos.tarjeta : (typeof params.Tarjeta === 'number' ? params.Tarjeta : 0)
-	const Transferencia = typeof pagos.transferencia === 'number' ? pagos.transferencia : (typeof params.Transferencia === 'number' ? params.Transferencia : 0)
-	const totalPaid = (typeof pagos.totalPaid === 'number') ? pagos.totalPaid : (Efectivo + Tarjeta + Transferencia)
-	let cambio: number
-	if (typeof pagos.cambio === 'number') {
-		cambio = pagos.cambio
-	} else if (typeof params.cambio === 'number') {
-		cambio = params.cambio
-	} else {
-		const computed = Number(totalPaid) - Number(ft || 0)
-		cambio = isNaN(computed) ? 0 : (computed > 0 ? computed : 0)
-	}
+  const pagos = params.pagos || {};
+  const Efectivo =
+    typeof pagos.efectivo === "number"
+      ? pagos.efectivo
+      : typeof params.Efectivo === "number"
+        ? params.Efectivo
+        : 0;
+  const Tarjeta =
+    typeof pagos.tarjeta === "number"
+      ? pagos.tarjeta
+      : typeof params.Tarjeta === "number"
+        ? params.Tarjeta
+        : 0;
+  const Transferencia =
+    typeof pagos.transferencia === "number"
+      ? pagos.transferencia
+      : typeof params.Transferencia === "number"
+        ? params.Transferencia
+        : 0;
+  const totalPaid =
+    typeof pagos.totalPaid === "number"
+      ? pagos.totalPaid
+      : Efectivo + Tarjeta + Transferencia;
+  let cambio: number;
+  if (typeof pagos.cambio === "number") {
+    cambio = pagos.cambio;
+  } else if (typeof params.cambio === "number") {
+    cambio = params.cambio;
+  } else {
+    const computed = Number(totalPaid) - Number(ft || 0);
+    cambio = isNaN(computed) ? 0 : computed > 0 ? computed : 0;
+  }
 
-	const buildProductosTabla = () => {
-		return carrito.map((i: any) => {
-			const desc = String((i.producto && (i.producto.nombre || i.producto.descripcion)) || i.descripcion || i.nombre || '')
-			const cant = Number(i.cantidad || 0)
-			// precio por unidad incluyendo impuestos (valor bruto tal como está en producto.precio)
-			const precioBrutoUnit = Number((i.producto && (i.producto.precio ?? i.producto.precio_unitario)) ?? (i.precio_unitario ?? i.precio) ?? 0)
-			// determinar si el producto está exento o aplica impuestos especiales
-			const exento = Boolean(i.producto && i.producto.exento) || Boolean(i.exento)
-			const aplica18 = Boolean(i.producto && (i.producto.aplica_impuesto_18)) || Boolean(i.aplica_impuesto_18)
-			const aplicaTur = Boolean(i.producto && (i.producto.aplica_impuesto_turistico)) || Boolean(i.aplica_impuesto_turistico)
-			// tasas preferidas desde params (si fueron pasadas al generar la factura)
-			const mainRate = aplica18 ? (params.tax18Rate ?? params.tax18 ?? 0) : (params.taxRate ?? params.tax ?? 0)
-			const turRate = aplicaTur ? (params.taxTouristRate ?? params.taxTourist ?? 0) : 0
-			const combined = (Number(mainRate) || 0) + (Number(turRate) || 0)
-			// precio unitario SIN impuestos: si está exento o no hay tasas, es igual al bruto
-			let precioUnitario = precioBrutoUnit
-			if (!exento && combined > 0) {
-				precioUnitario = precioBrutoUnit / (1 + combined)
-			}
-			const precioStr = Number(precioUnitario || 0).toFixed(2)
-			const subtotalLinea = (precioUnitario * cant)
-			const subtotalStr = Number(subtotalLinea || 0).toFixed(2)
-			const sku = (i.producto && i.producto.sku) || (i.sku || '')
-			return `<tr><td>${sku} ${desc}</td><td style="text-align:center">${cant}</td><td style="text-align:right">L ${precioStr}</td><td style="text-align:right">L ${subtotalStr}</td></tr>`
-		}).join('\n')
-	}
+  const buildProductosTabla = () => {
+    return carrito
+      .map((i: any) => {
+        const desc = String(
+          (i.producto && (i.producto.nombre || i.producto.descripcion)) ||
+            i.descripcion ||
+            i.nombre ||
+            "",
+        );
+        const cant = Number(i.cantidad || 0);
+        // precio por unidad incluyendo impuestos (valor bruto tal como está en producto.precio)
+        const precioBrutoUnit = Number(
+          (i.producto && (i.producto.precio ?? i.producto.precio_unitario)) ??
+            i.precio_unitario ??
+            i.precio ??
+            0,
+        );
+        // determinar si el producto está exento o aplica impuestos especiales
+        const exento =
+          Boolean(i.producto && i.producto.exento) || Boolean(i.exento);
+        const aplica18 =
+          Boolean(i.producto && i.producto.aplica_impuesto_18) ||
+          Boolean(i.aplica_impuesto_18);
+        const aplicaTur =
+          Boolean(i.producto && i.producto.aplica_impuesto_turistico) ||
+          Boolean(i.aplica_impuesto_turistico);
+        // tasas preferidas desde params (si fueron pasadas al generar la factura)
+        const mainRate = aplica18
+          ? (params.tax18Rate ?? params.tax18 ?? 0)
+          : (params.taxRate ?? params.tax ?? 0);
+        const turRate = aplicaTur
+          ? (params.taxTouristRate ?? params.taxTourist ?? 0)
+          : 0;
+        const combined = (Number(mainRate) || 0) + (Number(turRate) || 0);
+        // precio unitario SIN impuestos: si está exento o no hay tasas, es igual al bruto
+        let precioUnitario = precioBrutoUnit;
+        if (!exento && combined > 0) {
+          precioUnitario = precioBrutoUnit / (1 + combined);
+        }
+        const precioStr = Number(precioUnitario || 0).toFixed(2);
+        const subtotalLinea = precioUnitario * cant;
+        const subtotalStr = Number(subtotalLinea || 0).toFixed(2);
+        const sku = (i.producto && i.producto.sku) || i.sku || "";
+        return `<tr><td>${sku} ${desc}</td><td style="text-align:center">${cant}</td><td style="text-align:right">L ${precioStr}</td><td style="text-align:right">L ${subtotalStr}</td></tr>`;
+      })
+      .join("\n");
+  };
 
-	const tabla = buildProductosTabla()
+  const tabla = buildProductosTabla();
 
-	// Calcular Total Pagado mostrado: efectivo + transferencia + tarjeta - cambio
-	const totalPagadoCalcRaw = (Number(Efectivo) || 0) + (Number(Transferencia) || 0) + (Number(Tarjeta) || 0) - (Number(cambio) || 0)
-	const totalPagadoCalc = isNaN(totalPagadoCalcRaw) ? 0 : totalPagadoCalcRaw
-	const letras = numeroALetras(totalPagadoCalc)
+  // Calcular Total Pagado mostrado: efectivo + transferencia + tarjeta - cambio
+  const totalPagadoCalcRaw =
+    (Number(Efectivo) || 0) +
+    (Number(Transferencia) || 0) +
+    (Number(Tarjeta) || 0) -
+    (Number(cambio) || 0);
+  const totalPagadoCalc = isNaN(totalPagadoCalcRaw) ? 0 : totalPagadoCalcRaw;
+  const letras = numeroALetras(totalPagadoCalc);
 
-	const htmlOutput = `
-<!DOCTYPE html>
+  // Extraer DIA, MES, AÑO de la fecha actual
+  const hoy = new Date();
+  const diaN = String(hoy.getDate()).padStart(2, "0");
+  const mesN = String(hoy.getMonth() + 1).padStart(2, "0");
+  const anioN = String(hoy.getFullYear());
+
+  // Hora formateada
+  const horaStr = hoy.toLocaleTimeString("es-HN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  // Dirección del cliente (si se pasa)
+  const direccionCliente = opts.direccionCliente || "";
+
+  // Nombre de empresa fijo
+  const empresaNombre = "SOLUCIONES TECNICAS CASTRO";
+
+  // Rango con identificador
+  const rangoStr = identificador
+    ? `${identificador}${rangoAutorizadoDe} - ${identificador}${rangoAutorizadoHasta}`
+    : `${rangoAutorizadoDe} - ${rangoAutorizadoHasta}`;
+
+  // ── Bloque que se repite dos veces (las dos copias) ──
+  const buildCopia = (labelCopia: string) => `
+<div class="copia">
+
+  <!-- ① Nombre empresa arriba del logo -->
+  <div class="empresa-nombre">${empresaNombre}</div>
+
+  <!-- ② Encabezado: LOGO | INFO EMPRESA | FECHA | RTN/FACTURA/CAI -->
+  <table class="header-table" cellspacing="0" cellpadding="0">
+    <tr>
+      <td class="td-logo">
+        ${logoSrc ? `<img src="${logoSrc}" alt="Logo" class="logo-img" />` : '<div class="logo-placeholder">LOGO</div>'}
+      </td>
+      <td class="td-info">
+        <div class="info-racp">R.A.C.P</div>
+        <div class="info-line"><b>R.T.N:</b> ${rtnEmp || "&nbsp;"}</div>
+        <div class="info-line"><b>Dirección:</b> ${direccion}</div>
+        <div class="info-line"><b>Teléfono:</b> ${telefono}</div>
+        <div class="info-line"><b>Email:</b> ${EM}</div>
+      </td>
+      <td class="td-fecha">
+        <div class="fecha-libre">${diaN}/${mesN}/${anioN}</div>
+      </td>
+      <td class="td-cai-box">
+        <table class="cai-table" cellspacing="0" cellpadding="0">
+          <tr>
+            <td colspan="2" class="cai-value factura-badge">FACTURA</td>
+          </tr>
+        </table>
+        <div class="num-factura-box">
+          <div class="num-cai-line">CAI: ${CAI || "&mdash;"}</div>
+          <div class="num-no-line">No. ${factura}</div>
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- ③ Datos del cliente -->
+  <table class="cliente-table" cellspacing="0" cellpadding="0">
+    <tr>
+      <td colspan="2" class="cliente-nombre-cell">
+        <b>Cliente:</b>&nbsp;${cliente}
+      </td>
+    </tr>
+    <tr>
+      <td colspan="2" class="cliente-rtn-cell">
+        <b>RTN :</b>&nbsp;${identidad}
+      </td>
+    </tr>
+    <tr>
+      <td colspan="2" class="cliente-dir-cell">
+        <b>Dirección:</b>&nbsp;${direccionCliente || "—"}
+      </td>
+    </tr>
+  </table>
+
+  <!-- ④ Tabla de productos -->
+  <table class="tabla-productos" cellspacing="0" cellpadding="0">
+    <thead>
+      <tr>
+        <th>Descripción</th>
+        <th class="col-num">Cant.</th>
+        <th class="col-num">Precio Unit.</th>
+        <th class="col-num">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tabla}
+    </tbody>
+  </table>
+
+  <!-- ⑤ Totales -->
+  <table class="totales-table" cellspacing="0" cellpadding="0">
+    <tr>
+      <td class="tot-lab">Descuento:</td><td class="tot-val">L ${DSC.toFixed(2)}</td>
+      <td class="tot-lab">Sub Total Gravado:</td><td class="tot-val">L ${Number(Gravado).toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td class="tot-lab">Sub Total Exento:</td><td class="tot-val">L ${Number(Exento).toFixed(2)}</td>
+      <td class="tot-lab">Sub Total Exonerado:</td><td class="tot-val">L ${Number(exonerado).toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td class="tot-lab">ISV 15%:</td><td class="tot-val">L ${Number(impuesto).toFixed(2)}</td>
+      <td class="tot-lab"></td><td class="tot-val"></td>
+    </tr>
+    <tr>
+      <td class="tot-total" colspan="4"><b>TOTAL FACTURA: L ${ft.toFixed(2)}</b></td>
+    </tr>
+  </table>
+
+  <!-- ⑥ Métodos de pago -->
+  <table class="pagos-table" cellspacing="0" cellpadding="0">
+    <tr>
+      <td class="pag-cell"><b>Efectivo:</b> L ${Number(Efectivo).toFixed(2)}</td>
+      <td class="pag-cell"><b>Tarjeta:</b> L ${Number(Tarjeta).toFixed(2)}</td>
+      <td class="pag-cell"><b>Transferencia:</b> L ${Number(Transferencia).toFixed(2)}</td>
+      <td class="pag-cell"><b>Cambio:</b> L ${Number(cambio).toFixed(2)}</td>
+    </tr>
+  </table>
+
+  <!-- ⑦ Total en letras -->
+  <table class="letras-table" cellspacing="0" cellpadding="0">
+    <tr><td class="letras-cell">*** ${letras} Lempiras ***</td></tr>
+  </table>
+
+  <!-- ⑧ Info fiscal CAI al pie -->
+  <table class="cai-footer-table" cellspacing="0" cellpadding="0">
+    <tr>
+      <td class="cai-ft-cell"><b>CAI:</b> ${CAI || "—"}</td>
+    </tr>
+    <tr>
+      <td class="cai-ft-cell"><b>Rango autorizado:</b> ${rangoStr || "—"}</td>
+    </tr>
+    <tr>
+      <td class="cai-ft-cell"><b>Fecha límite de emisión:</b> ${fechaLimiteEmision || "—"}</td>
+    </tr>
+  </table>
+
+  <!-- ⑨ Firmas, copia y mensaje -->
+  <table class="firmas-table" cellspacing="0" cellpadding="0">
+    <tr>
+      <td class="firma-cell">Firma Cliente: ______________________</td>
+      <td class="firma-cell">Fi Empresarma Emisor: ______________________</td>
+      <td class="copia-label-cell">${labelCopia}</td>
+    </tr>
+  </table>
+
+  <table class="gracias-table" cellspacing="0" cellpadding="0">
+    <tr><td class="gracias-cell">¡Gracias por su compra! &nbsp;—&nbsp; LA FACTURA ES BENEFICIO DE TODOS, EXÍJALA</td></tr>
+  </table>
+
+</div>`;
+
+  const htmlOutput = `<!DOCTYPE html>
 <html lang="es">
 <head>
-	<meta charset="UTF-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>Factura Detallada</title>
-	<style>
-		@page { size: letter; margin: 0.5in; }
-		* { letter-spacing: 0 !important; word-spacing: 0 !important; margin: 0; padding: 0; line-height: 1.2 !important; box-sizing: border-box; }
-		body { font-family: 'Arial', sans-serif; font-size: 10px; color: #000; margin: 0; padding: 0; }
-		.factura-container { width: 100%; max-width: 8.5in; margin: 0 auto; padding: 0.25in; }
-		.divider { border: none; border-top: 1px solid #ddd; margin: 8px 0; }
-		.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 12px; }
-		.header img { width: 140px; height: auto; object-fit: contain; margin-right: 12px; }
-		.header-title { font-size: 28px; color: #0f172a; text-align: right; flex-grow: 1; font-weight: 700 !important; }
-		.info-section h3, .info-section p { font-size: 11px; margin-bottom: 3px; }
+  <meta charset="UTF-8"/>
+  <title>Factura ${factura}</title>
+  <style>
+    /* ─── Página: carta, dos copias verticales ─── */
+    @page { size: letter portrait; margin: 0.25in 0.35in; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 8.5px; color: #000; background: #fff; }
 
-		/* Tabla: diseño moderno para impresión (igual que cotización) */
-		.tabla { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; font-size: 10px; box-shadow: 0 2px 6px rgba(2,6,23,0.06); border-radius: 6px; overflow: hidden; }
-		.tabla thead tr { background: linear-gradient(180deg,#0f172a,#0b1220); color: #fff; }
-		.tabla th { padding: 10px 8px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700 !important; border-bottom: 1px solid rgba(255,255,255,0.08); }
-		.tabla td { padding: 10px 8px; font-size: 10px; vertical-align: middle; background: #fff; font-weight: 400 !important; border-bottom: 1px solid #eef2f7; }
-		.tabla tbody tr:nth-child(even) td { background: #f8fafc; }
-		.tabla td:nth-child(2), .tabla td:nth-child(3), .tabla td:nth-child(4) { text-align: right; }
-		.tabla td:first-child { text-align: left; }
-		.tabla tfoot td { font-weight: 700 !important; }
+    /* ─── Contenedor de las dos copias ─── */
+    .page-wrap { width: 100%; }
 
-		.totals-section { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 0; }
-		.totals-section span.label { text-align: left; padding-left: 2px; font-weight: 600 !important; }
-		.totals-section span.value { text-align: right; padding-right: 2px; font-weight: 700 !important; }
-		.total-final { font-size: 11px; margin-top: 6px; border-top: 1px solid #e6edf3; padding-top: 6px; font-weight: 800 !important; }
-		.footer-info { text-align: center; margin-top: 12px; font-size: 10px; color: #374151; }
-		.letras { font-size: 11px; margin: 6px 0; text-align: center; }
-		.firma-section { margin-top: 16px; display: flex; justify-content: space-around; text-align: center; }
-		.copias-info { text-align: center; margin-top: 8px; }
-		.final-message { font-size: 10px; text-align: center; margin-top: 10px; color: #374151; }
+    /* ─── Cada copia ocupa la mitad de la hoja ─── */
+    .copia {
+      width: 100%;
+      padding: 4px 0;
+      page-break-inside: avoid;
+    }
+    /* Separador entre las dos copias */
+    .separador {
+      border: none;
+      border-top: 1.5px dashed #888;
+      margin: 6px 0;
+      position: relative;
+    }
+    .separador::after {
+      content: '✂';
+      position: absolute;
+      left: 50%;
+      top: -8px;
+      font-size: 12px;
+      background: #fff;
+      padding: 0 4px;
+      color: #888;
+    }
 
-		@media print {
-			.factura-container { box-shadow: none; border-radius: 0; }
-			.tabla thead tr { background: #0f172a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-			.tabla th, .tabla td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-		}
+    /* ─── Nombre empresa ─── */
+    .empresa-nombre {
+      font-size: 15px;
+      font-weight: 900;
+      text-align: center;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      border-bottom: 2px solid #000;
+      padding-bottom: 3px;
+      margin-bottom: 4px;
+    }
 
-		html, body, .factura-container, .header, .header-title, .header-title-container, .tabla, .tabla th, .totals-section, .total-final, .footer-info { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-		.header-title-container { text-align: right; }
-		.numero-factura { font-size: 22px; color: #0f172a; margin-top: -3px; font-weight: 700 !important; }
-	</style>
+    /* ─── Tabla principal del encabezado ─── */
+    .header-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #000;
+      margin-bottom: 3px;
+    }
+    .header-table td { vertical-align: top; border: none; }
+
+    /* LOGO */
+    .td-logo { width: 70px; padding: 3px; text-align: center; vertical-align: middle !important; }
+    .logo-img { width: 65px; height: auto; object-fit: contain; display: block; margin: auto; }
+    .logo-placeholder { width: 65px; height: 45px; border: 1px dashed #aaa; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #999; }
+
+    /* INFO EMPRESA */
+    .td-info { padding: 3px 5px; width: 28%; }
+    .info-racp { font-size: 8px; font-weight: 900; text-align: center; letter-spacing: 1px; margin-bottom: 2px; }
+    .info-line { font-size: 8.5px; font-weight: 700; line-height: 1.7; }
+
+    /* TABLA FECHA */
+    .td-fecha { width: 18%; padding: 3px; vertical-align: middle !important; }
+    .fecha-libre { font-size: 9px; font-weight: 700; text-align: center; }
+    .hora-line { display: none; }
+
+    /* CUADRO RTN/FACTURA/CAI */
+    .td-cai-box { padding: 0; width: 30%; }
+    .cai-table { width: 100%; border-collapse: collapse; }
+    .cai-table td { border: 1px solid #000; padding: 2px 4px; font-size: 7px; }
+    .cai-label { width: 42%; font-weight: 700; background: #f1f5f9; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .cai-value { }
+    .rtn-value { font-weight: 600; }
+    .factura-badge { font-weight: 900; font-size: 9px; text-align: center; letter-spacing: 1px; }
+    .cai-num { font-weight: 700; font-size: 7px; word-break: break-all; }
+    .cai-row-grande td { padding: 3px 4px; }
+    .num-factura-box {
+      background: #fff;
+      color: #000;
+      text-align: center;
+      padding: 2px 3px;
+    }
+    .num-cai-line {
+      font-size: 6.5px;
+      font-weight: 700;
+      word-break: break-all;
+      color: #000;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .num-no-line {
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      margin-top: 1px;
+    }
+
+    /* ─── Tabla cliente ─── */
+    .cliente-table { width: 100%; border-collapse: collapse; border: none; margin-bottom: 3px; }
+    .cliente-table td { border: none; padding: 1px 5px; font-size: 8px; }
+    .cliente-nombre-cell { font-size: 8.5px; }
+    .cliente-dir-cell { width: 60%; }
+    .cliente-rtn-cell { width: 40%; }
+    .cl-label { font-weight: 700; }
+    .cl-value { }
+
+    /* ─── Tabla de productos ─── */
+    .tabla-productos { width: 100%; border-collapse: collapse; margin-bottom: 3px; }
+    .tabla-productos thead tr { background: #fff; color: #000; }
+    .tabla-productos th { padding: 3px 4px; font-size: 7.5px; font-weight: 700; text-align: left; border: 1px solid #000; }
+    .tabla-productos td { padding: 2px 4px; font-size: 8px; border: 1px solid #ccc; vertical-align: middle; }
+    .tabla-productos tbody tr:nth-child(even) td { background: #f8fafc; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .col-num { width: 11%; text-align: right !important; }
+
+    /* ─── Totales ─── */
+    .totales-table { width: 100%; border-collapse: collapse; margin-bottom: 2px; }
+    .totales-table td { padding: 1.5px 4px; font-size: 7.5px; border: 1px solid #ddd; }
+    .tot-lab { font-weight: 600; background: #f8fafc; width: 22%; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .tot-val { text-align: right; width: 14%; }
+    .tot-total { font-size: 9px; font-weight: 900; }
+
+    /* ─── Pagos ─── */
+    .pagos-table { width: 100%; border-collapse: collapse; margin-bottom: 2px; }
+    .pag-cell { padding: 2px 5px; font-size: 8px; border: 1px solid #000; text-align: center; }
+
+    /* ─── Total en letras ─── */
+    .letras-line { text-align: center; font-size: 7.5px; font-style: italic; margin: 2px 0; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; padding: 1.5px; }
+
+    /* ─── Pie fiscal ─── */
+    .cai-footer { display: flex; justify-content: space-between; font-size: 6.5px; color: #444; margin: 2px 0; border: 1px dashed #aaa; padding: 2px 4px; }
+
+    /* ─── Firmas ─── */
+    .firmas-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 4px; font-size: 7.5px; gap: 8px; }
+    .copia-label { font-size: 7px; font-weight: 700; color: #555; white-space: nowrap; }
+
+    /* ─── Gracias ─── */
+    .gracias { text-align: center; font-size: 7px; color: #555; margin-top: 2px; }
+
+    @media print {
+      body { margin: 0; }
+      .separador { border-top: 1.5px dashed #888 !important; }
+    }
+  </style>
 </head>
 <body>
-	<main class="factura-container">
-
-		<header class="header">
-    <img src="${logoSrc}" alt="Logo del Comercio" />
-    <div class="header-title-container">
-        <h1 class="header-title">FACTURA</h1>
-        <h2 class="numero-factura">No. ${factura}</h2>
-    </div>
-</header>
-
-		<hr class="divider" />
-
-		<section class="info-section">
-			<h3>${comercio}</h3>
-			<p>RTN: ${rtnEmp}</p>
-			<p>Dirección: ${direccion}</p>
-			<p>Teléfono: ${telefono}</p>
-			<p>Email: ${EM}</p>
-		</section>
-		<hr class="divider" />
-
-		<section class="info-dates">
-			<p>Fecha y hora: ${Ahora}</p>
-			<p>Factura No: ${factura}</p>
-			<p>CAI: ${CAI}</p>
-			<p>Fecha límite de emisión: ${fechaLimiteEmision}</p>
-			<p>Rango autorizado: ${identificador ? (identificador + ' ' + rangoAutorizadoDe + ' al ' + identificador + ' ' + rangoAutorizadoHasta) : (rangoAutorizadoDe + ' al ' + rangoAutorizadoHasta)}</p>
-		</section>
-		<hr class="divider" />
-
-		<section class="info-section">
-			<p>Cliente: ${cliente}</p>
-			<p>RTN Cliente: ${identidad}</p>
-		</section>
-		<hr class="divider" />
-
-		<section class="details-section">
-			<table class="tabla">
-				<thead>
-					<tr>
-						<th>Descripción</th>
-						<th style="width: 10%;">Cant</th>
-							<th style="width: 15%;">Precio unitario</th>
-							<th style="width: 15%;">Total</th>
-					</tr>
-				</thead>
-				<tbody>
-					${tabla} </tbody>
-			</table>
-		</section>
-		<hr class="divider" />
-
-	<section class="totals-section">
-    <span class="label">Descuento:</span> <span class="value">L ${DSC.toFixed(2)}</span>
-    <span class="label">Sub Total Exonerado:</span> <span class="value">L ${Number(exonerado).toFixed(2)}</span>
-    <span class="label">Sub Total Gravado:</span> <span class="value">L ${Number(Gravado).toFixed(2)}</span>
-    <span class="label">Sub Total Exento:</span> <span class="value">L ${Number(Exento).toFixed(2)}</span>
-    <span class="label">Tasa Turística 4%:</span> <span class="value">L ${Number(isv4).toFixed(2)}</span>
-    <span class="label">ISV 15%:</span> <span class="value">L ${Number(impuesto).toFixed(2)}</span>
-    <span class="label">ISV 18%:</span> <span class="value">L ${Number(ISV18).toFixed(2)}</span>
-</section>
-
-<section class="transaccion-section"><hr class="divider" />
-    <span class="label">TOTAL TRANSACCIÓN:</span>
-    <span class="value">L ${Number(transaccion).toFixed(2)}</span>
-</section>
-
-<hr class="divider" />
-
-
-		<section class="totals-section total-final">
-			<span class="label">**TOTAL FACTURA:**</span> <span class="value">**L ${ft.toFixed(2)}**</span>
-			<span class="label">Efectivo:</span> <span class="value">L ${Number(Efectivo).toFixed(2)}</span>
-			<span class="label">Tarjeta:</span> <span class="value">L ${Number(Tarjeta).toFixed(2)}</span>
-			<span class="label">Transferencia:</span> <span class="value">L ${Number(Transferencia).toFixed(2)}</span>
-			<span class="label">Cambio:</span> <span class="value">L ${Number(cambio).toFixed(2)}</span>
-		</section>
-		<hr class="divider" />
-
-		<footer class="footer-info">
-			<div class="letras">
-				<p>Total Pagado: L ${totalPagadoCalc.toFixed(2)}</p>
-				<p>*** ${letras} Lempiras ***</p>
-			</div>
-			<hr class="divider" />
-			
-			<div class="firma-section">
-				<p>Firma del Cliente: ______________________</p>
-				<p>Firma del Emisor: ______________________</p>
-			</div>
-			
-			<div class="copias-info">
-				<p>Original: Cliente | Copia: Obligado tributario emisor</p>
-			</div>
-			
-			<div class="final-message">
-				<h5>Para cualquier reclamo debe presentar su factura</h5>
-				<h5>¡Gracias por su compra!</h5>
-				<h5>¡LA FACTURA ES BENEFICIO DE TODOS EXÍJALA!</h5>
-			</div>
-		</footer>
-
-	</main>
+<div class="page-wrap">
+  ${buildCopia("ORIGINAL: Cliente")}
+  ${params.singleCopy ? "" : `<hr class="separador"/>\n  ${buildCopia("COPIA: Emisor")}`}
+</div>
 </body>
-</html>`
+</html>`;
 
-	return htmlOutput
+  return htmlOutput;
 }
 
-export default generateFacturaHTML
+export default generateFacturaHTML;
 
 function numeroALetras(num: number) {
-	// Convert number to words in Spanish (simplified, handles integers)
-	if (!isFinite(num)) return ''
-	const unidades = ['', 'uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince','dieciseis','diecisiete','dieciocho','diecinueve','veinte']
-	const decenas = ['', '', 'veinte','treinta','cuarenta','cincuenta','sesenta','setenta','ochenta','noventa']
-	const centenas = ['', 'cien','doscientos','trescientos','cuatrocientos','quinientos','seiscientos','setecientos','ochocientos','novecientos']
+  // Convert number to words in Spanish (simplified, handles integers)
+  if (!isFinite(num)) return "";
+  const unidades = [
+    "",
+    "uno",
+    "dos",
+    "tres",
+    "cuatro",
+    "cinco",
+    "seis",
+    "siete",
+    "ocho",
+    "nueve",
+    "diez",
+    "once",
+    "doce",
+    "trece",
+    "catorce",
+    "quince",
+    "dieciseis",
+    "diecisiete",
+    "dieciocho",
+    "diecinueve",
+    "veinte",
+  ];
+  const decenas = [
+    "",
+    "",
+    "veinte",
+    "treinta",
+    "cuarenta",
+    "cincuenta",
+    "sesenta",
+    "setenta",
+    "ochenta",
+    "noventa",
+  ];
+  const centenas = [
+    "",
+    "cien",
+    "doscientos",
+    "trescientos",
+    "cuatrocientos",
+    "quinientos",
+    "seiscientos",
+    "setecientos",
+    "ochocientos",
+    "novecientos",
+  ];
 
-	function numeroMenorDeMil(n: number): string {
-		let s = ''
-		if (n === 0) return ''
-		if (n < 21) return unidades[n]
-		if (n < 100) {
-			const d = Math.floor(n/10)
-			const r = n%10
-			return decenas[d] + (r? (' y ' + unidades[r]) : '')
-		}
-		if (n < 1000) {
-			const c = Math.floor(n/100)
-			const rest = n%100
-			const cent = (c === 1 && rest === 0) ? 'cien' : (centenas[c] || '')
-			return cent + (rest ? ' ' + numeroMenorDeMil(rest) : '')
-		}
-		return ''
-	}
+  function numeroMenorDeMil(n: number): string {
+    let s = "";
+    if (n === 0) return "";
+    if (n < 21) return unidades[n];
+    if (n < 100) {
+      const d = Math.floor(n / 10);
+      const r = n % 10;
+      return decenas[d] + (r ? " y " + unidades[r] : "");
+    }
+    if (n < 1000) {
+      const c = Math.floor(n / 100);
+      const rest = n % 100;
+      const cent = c === 1 && rest === 0 ? "cien" : centenas[c] || "";
+      return cent + (rest ? " " + numeroMenorDeMil(rest) : "");
+    }
+    return "";
+  }
 
-	const entero = Math.floor(Math.abs(num))
-	if (entero === 0) return 'cero'
-	const partes: string[] = []
-	let remainder = entero
-	const unidadesMiles = ['', 'mil', 'millón', 'mil millones']
-	let idx = 0
-	while (remainder > 0) {
-		const chunk = remainder % 1000
-		if (chunk) {
-			let chunkStr = numeroMenorDeMil(chunk)
-			if (idx === 2 && chunk === 1) chunkStr = 'un'
-			partes.unshift(chunkStr + (unidadesMiles[idx] ? ' ' + unidadesMiles[idx] : ''))
-		}
-		remainder = Math.floor(remainder/1000)
-		idx++
-	}
-	return partes.join(' ').trim()
+  const entero = Math.floor(Math.abs(num));
+  if (entero === 0) return "cero";
+  const partes: string[] = [];
+  let remainder = entero;
+  const unidadesMiles = ["", "mil", "millón", "mil millones"];
+  let idx = 0;
+  while (remainder > 0) {
+    const chunk = remainder % 1000;
+    if (chunk) {
+      let chunkStr = numeroMenorDeMil(chunk);
+      if (idx === 2 && chunk === 1) chunkStr = "un";
+      partes.unshift(
+        chunkStr + (unidadesMiles[idx] ? " " + unidadesMiles[idx] : ""),
+      );
+    }
+    remainder = Math.floor(remainder / 1000);
+    idx++;
+  }
+  return partes.join(" ").trim();
 }
 // Utility to generate factura/cotización HTML from provided cart and totals
-

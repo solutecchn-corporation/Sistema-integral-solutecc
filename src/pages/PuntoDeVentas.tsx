@@ -22,6 +22,8 @@ import FacturarSelectorModal from "../components/FacturarSelectorModal";
 import ClienteNormalModal from "../components/ClienteNormalModal";
 import CreateClienteModal from "../components/CreateClienteModal";
 import CotizacionModal from "../components/CotizacionModal";
+import PrintOrEmailModal from "../components/PrintOrEmailModal";
+import EmailFacturaModal from "../components/EmailFacturaModal";
 import { generateFacturaHTML } from "../lib/generateFacturaHTML";
 import generateFacturaHTMLCinta from "../lib/generedordefacturahtmlcinta";
 import generateCotizacionHTML from "../lib/cotizaconhtmlimp";
@@ -44,6 +46,7 @@ type Producto = {
 type ItemCarrito = {
   producto: Producto;
   cantidad: number;
+  descuento?: number; // porcentaje 0-100
 };
 
 export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
@@ -66,6 +69,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     "producto",
   );
   const [showEntradaManualModal, setShowEntradaManualModal] = useState(false);
+  const [showNuevaFacturaModal, setShowNuevaFacturaModal] = useState(false);
   const [taxRate, setTaxRate] = useState<number>(0.15); // default ISV 15%
   const [tax18Rate, setTax18Rate] = useState<number>(0); // default 0.18 (18%)
   const [taxTouristRate, setTaxTouristRate] = useState<number>(0); // default 0.04 (4%)
@@ -88,10 +92,12 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       (p.tipo === tipoFiltro || !p.tipo), // Filtrar por tipo seleccionado
   );
 
-  const grossTotal = carrito.reduce(
-    (sum, item) => sum + Number(item.producto.precio || 0) * item.cantidad,
-    0,
-  );
+  const grossTotal = carrito.reduce((sum, item) => {
+    const precio = Number(item.producto.precio || 0);
+    const pct = Number(item.descuento || 0);
+    const precioEfectivo = precio * (1 - pct / 100);
+    return sum + precioEfectivo * item.cantidad;
+  }, 0);
   // Compute taxes as included in the item price (price includes taxes).
   // For each item, extract the tax portion: taxAmount = price - price / (1 + combinedRate)
   // Then split the taxAmount between main tax (ISV 15% or 18%) and tourist tax proportionally.
@@ -99,7 +105,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   let imp18Total = 0;
   let impTouristTotal = 0;
   for (const item of carrito) {
-    const price = Number(item.producto.precio || 0) * item.cantidad;
+    const precioBase = Number(item.producto.precio || 0);
+    const pctDesc = Number(item.descuento || 0);
+    const price = precioBase * (1 - pctDesc / 100) * item.cantidad;
     const exento = Boolean(item.producto.exento);
     const aplica18 = Boolean((item.producto as any).aplica_impuesto_18);
     const aplicaTur = Boolean((item.producto as any).aplica_impuesto_turistico);
@@ -148,7 +156,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   );
   // Per-item tax breakdown for UI/debugging
   const perItemTaxes = carrito.map((item) => {
-    const price = Number(item.producto.precio || 0) * item.cantidad;
+    const precioBase = Number(item.producto.precio || 0);
+    const pctDesc = Number(item.descuento || 0);
+    const price = precioBase * (1 - pctDesc / 100) * item.cantidad;
     const exento = Boolean(item.producto.exento);
     const aplica18 = Boolean((item.producto as any).aplica_impuesto_18);
     const aplicaTur = Boolean((item.producto as any).aplica_impuesto_turistico);
@@ -237,6 +247,16 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
 
   const vaciarCarrito = () => setCarrito([]);
 
+  const aplicarDescuento = (id: any, pct: number) => {
+    setCarrito((prev) =>
+      prev.map((item) =>
+        String(item.producto.id) === String(id)
+          ? { ...item, descuento: pct }
+          : item,
+      ),
+    );
+  };
+
   const generarTicket = (tipo: "cotizacion" | "factura") => {
     const ticket = `
   ${tipo === "factura" ? "=== FACTURA ===" : "=== COTIZACIÓN ==="}
@@ -299,6 +319,20 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const [paymentDone, setPaymentDone] = useState(false);
   const [paymentInfo, setPaymentInfo] = useState<any | null>(null);
   const [invoiceAfterPayment, setInvoiceAfterPayment] = useState(false);
+
+  // ── Delivery modal (Imprimir / Correo) ──────────────────────────────────────
+  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+  const [pendingHtmlPrint, setPendingHtmlPrint] = useState("");
+  const [pendingHtmlEmail, setPendingHtmlEmail] = useState("");
+  const [pendingEmailHint, setPendingEmailHint] = useState("");
+  const [pendingFacturaNumero, setPendingFacturaNumero] = useState("");
+  const [pendingDocType, setPendingDocType] = useState<
+    "factura" | "cotizacion"
+  >("factura");
+  const [pendingAfterDelivery, setPendingAfterDelivery] = useState<
+    (() => Promise<void>) | null
+  >(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const [printFormat, setPrintFormat] = useState<"carta" | "cinta">("carta");
   const [cajaConfigOpen, setCajaConfigOpen] = useState(false);
 
@@ -668,6 +702,93 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     setFacturarModalOpen(false);
   };
 
+  // ── Helper: abrir ventana de impresión con el HTML dado ─────────────────────
+  const doPrintHtml = async (html: string) => {
+    const isMobile =
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent,
+      );
+    if (isMobile) {
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const newWindow = window.open(url, "_blank");
+      if (newWindow) {
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        newWindow.addEventListener("load", () => {
+          setTimeout(() => {
+            try {
+              newWindow.print();
+            } catch (e) {}
+          }, 500);
+        });
+      } else {
+        alert(
+          "Por favor, permite ventanas emergentes para imprimir la factura",
+        );
+      }
+    } else {
+      const printWindow = window.open("", "_blank", "width=800,height=600");
+      if (printWindow) {
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        const imgs = printWindow.document.images;
+        if (imgs && imgs.length > 0) {
+          let loaded = 0;
+          const checkLoaded = () => {
+            loaded++;
+            if (loaded === imgs.length) {
+              setTimeout(() => {
+                try {
+                  printWindow.focus();
+                  printWindow.print();
+                } catch (e) {}
+              }, 300);
+            }
+          };
+          for (let i = 0; i < imgs.length; i++) {
+            const img = imgs[i] as HTMLImageElement;
+            if (img.complete) {
+              checkLoaded();
+            } else {
+              img.addEventListener("load", checkLoaded);
+              img.addEventListener("error", checkLoaded);
+            }
+          }
+        } else {
+          setTimeout(() => {
+            try {
+              printWindow.focus();
+              printWindow.print();
+            } catch (e) {}
+          }, 300);
+        }
+      } else {
+        alert(
+          "Por favor, permite ventanas emergentes para imprimir la factura",
+        );
+      }
+    }
+  };
+
+  // ── Helper: mostrar modal Imprimir / Correo ───────────────────────────────────
+  const openDeliveryChoice = async (
+    htmlPrint: string,
+    htmlEmail: string,
+    afterDelivery: () => Promise<void>,
+    emailHint: string,
+    docType: "factura" | "cotizacion",
+    facturaNumero: string = "",
+  ) => {
+    setPendingHtmlPrint(htmlPrint);
+    setPendingHtmlEmail(htmlEmail);
+    setPendingAfterDelivery(() => afterDelivery);
+    setPendingEmailHint(emailHint);
+    setPendingDocType(docType);
+    setPendingFacturaNumero(facturaNumero);
+    setShowDeliveryModal(true);
+  };
+
   // finalize factura: mark cotizacion, insert venta, print
   const finalizeFacturaForCliente = async (
     cliente: string,
@@ -677,7 +798,10 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   ) => {
     let generator: any =
       printFormat === "cinta" ? generateFacturaHTMLCinta : generateFacturaHTML;
-    const optsForGenerator: any = { cliente, rtn };
+    const optsForGenerator: any = { cliente, rtn, caiInfo: caiInfoState };
+    // Obtener CAI fresco desde Supabase antes de generar el HTML
+    const freshCaiData = await fetchCaiDataForCurrentUser();
+    if (freshCaiData) optsForGenerator.caiInfo = freshCaiData;
     if (printingMode === "cotizacion") {
       generator = generateCotizacionHTML;
       // prefer explicit cotizacionNumero, fallback to last saved numero from state
@@ -807,13 +931,16 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         } catch (e) {
           console.debug("No se pudo cargar CAI desde frontend:", e);
         }
-        await insertVenta({
+        const ventaResult = await insertVenta({
           clienteName: cliente,
           rtn,
           paymentPayload,
           caiData,
           usuarioId: userId,
         });
+        if (ventaResult?.facturaNum) {
+          try { optsForGenerator.__facturaNum = ventaResult.facturaNum; } catch(e) {}
+        }
       } catch (e) {
         console.warn("Error preparando venta antes de imprimir:", e);
         const errorMsg =
@@ -823,115 +950,59 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       }
     }
 
-    // Abrir en nueva ventana/pestaña para que funcione correctamente en móviles/tablets
-    try {
-      // Detectar si es móvil/tablet
-      const isMobile =
-        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-          navigator.userAgent,
-        );
+    // Generar HTML de copia única (para correo — sin inlinear logo para evitar data URIs)
+    const genParamsForEmail: any = {
+      carrito,
+      subtotal: subtotalCalc(),
+      isvTotal,
+      imp18Total,
+      impTouristTotal,
+      taxRate,
+      tax18Rate,
+      taxTouristRate,
+      total: total,
+      pagos: paymentPayload,
+      singleCopy: true,
+    };
+    const htmlForEmail = await (printingMode === "cotizacion"
+      ? generateCotizacionHTML(
+          { ...optsForGenerator, inlineLogo: false },
+          printingMode,
+          genParamsForEmail,
+        )
+      : generator(
+          { ...optsForGenerator, inlineLogo: false },
+          printingMode,
+          genParamsForEmail,
+        ));
 
-      if (isMobile) {
-        // En móviles: usar blob URL para abrir en nueva pestaña
-        const blob = new Blob([html], { type: "text/html" });
-        const url = URL.createObjectURL(blob);
-        const newWindow = window.open(url, "_blank");
-
-        if (newWindow) {
-          // Limpiar el blob URL después de un tiempo
-          setTimeout(() => URL.revokeObjectURL(url), 10000);
-
-          // Intentar imprimir automáticamente después de cargar
-          newWindow.addEventListener("load", () => {
-            setTimeout(() => {
-              try {
-                newWindow.print();
-              } catch (e) {
-                console.debug(
-                  "Auto-print no disponible en este navegador móvil",
-                );
-              }
-            }, 500);
-          });
+    // Función de limpieza post-entrega (imprimir o correo)
+    const afterDelivery = async () => {
+      if (printingMode === "factura") {
+        vaciarCarrito();
+        await handlePostPrint();
+      }
+      if (printingMode === "cotizacion") {
+        setCotizacionPendingClient({ cliente, rtn });
+        if (!skipCotizacionConfirmRef.current) {
+          setCotizacionConfirmOpen(true);
         } else {
-          // Fallback si el popup fue bloqueado
-          alert(
-            "Por favor, permite ventanas emergentes para imprimir la factura",
-          );
-        }
-      } else {
-        // En desktop: abrir ventana normal
-        const printWindow = window.open("", "_blank", "width=800,height=600");
-        if (printWindow) {
-          printWindow.document.open();
-          printWindow.document.write(html);
-          printWindow.document.close();
-
-          // Esperar a que carguen las imágenes antes de imprimir
-          const imgs = printWindow.document.images;
-          if (imgs && imgs.length > 0) {
-            let loaded = 0;
-            const checkLoaded = () => {
-              loaded++;
-              if (loaded === imgs.length) {
-                setTimeout(() => {
-                  try {
-                    printWindow.focus();
-                    printWindow.print();
-                  } catch (e) {
-                    console.warn("Error al imprimir:", e);
-                  }
-                }, 300);
-              }
-            };
-
-            for (let i = 0; i < imgs.length; i++) {
-              const img = imgs[i] as HTMLImageElement;
-              if (img.complete) {
-                checkLoaded();
-              } else {
-                img.addEventListener("load", checkLoaded);
-                img.addEventListener("error", checkLoaded);
-              }
-            }
-          } else {
-            // Sin imágenes, imprimir directamente
-            setTimeout(() => {
-              try {
-                printWindow.focus();
-                printWindow.print();
-              } catch (e) {
-                console.warn("Error al imprimir:", e);
-              }
-            }, 300);
-          }
-        } else {
-          alert(
-            "Por favor, permite ventanas emergentes para imprimir la factura",
-          );
+          setCotizacionConfirmOpen(false);
+          setCotizacionPendingClient(null);
         }
       }
-    } catch (e) {
-      console.error("Error abriendo ventana de impresión:", e);
-      alert(
-        "Error al abrir la ventana de impresión. Por favor, verifica los permisos de ventanas emergentes.",
-      );
-    }
+    };
 
-    // post-print cleanup
-    if (printingMode === "factura") {
-      vaciarCarrito();
-      await handlePostPrint();
-    }
-    if (printingMode === "cotizacion") {
-      setCotizacionPendingClient({ cliente, rtn });
-      if (!skipCotizacionConfirmRef.current) {
-        setCotizacionConfirmOpen(true);
-      } else {
-        setCotizacionConfirmOpen(false);
-        setCotizacionPendingClient(null);
-      }
-    }
+    // Mostrar modal Imprimir / Enviar por Correo
+    const facturaNumParaModal = (optsForGenerator as any).__facturaNum || '';
+    await openDeliveryChoice(
+      html,
+      htmlForEmail,
+      afterDelivery,
+      clienteCorreo,
+      printingMode as "factura" | "cotizacion",
+      facturaNumParaModal,
+    );
   };
 
   // helper: inserta venta y sus detalles en supabase
@@ -1237,10 +1308,12 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
 
     const detalles = carrito.map((it) => {
       const price = Number(it.producto.precio || 0);
+      const pctDesc = Number(it.descuento || 0);
+      const precioEfectivo = price * (1 - pctDesc / 100);
       const qty = Number(it.cantidad || 0);
-      const subtotalItem = price * qty;
-      const descuento = 0;
-      const totalItem = subtotalItem - descuento;
+      const subtotalItem = precioEfectivo * qty;
+      const descuentoMonto = (price - precioEfectivo) * qty;
+      const totalItem = subtotalItem;
       // Si es un servicio temporal (entrada manual), usar null como producto_id
       const esTemp = String(it.producto.id).startsWith("temp-");
       return {
@@ -1249,9 +1322,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         producto_id: esTemp ? null : it.producto.id,
         descripcion: esTemp ? it.producto.nombre || "Servicio" : null,
         cantidad: qty,
-        precio_unitario: price,
+        precio_unitario: precioEfectivo,
         subtotal: subtotalItem,
-        descuento,
+        descuento: descuentoMonto,
         total: totalItem,
       };
     });
@@ -1267,18 +1340,22 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         // Excluir servicios temporales del RPC (solo productos con ID real)
         const rpcDetalles = carrito
           .filter((it) => !String(it.producto.id).startsWith("temp-"))
-          .map((it) => ({
-            producto_id: String(it.producto.id),
-            cantidad: Number(it.cantidad || 0),
-            precio_unitario: Number(it.producto.precio || 0),
-            subtotal: Number(
-              (Number(it.producto.precio || 0) * it.cantidad).toFixed(6),
-            ),
-            descuento: 0,
-            total: Number(
-              (Number(it.producto.precio || 0) * it.cantidad).toFixed(6),
-            ),
-          }));
+          .map((it) => {
+            const precioBase = Number(it.producto.precio || 0);
+            const pctDesc = Number(it.descuento || 0);
+            const precioEf = precioBase * (1 - pctDesc / 100);
+            const qty = Number(it.cantidad || 0);
+            const sub = Number((precioEf * qty).toFixed(6));
+            const desc = Number(((precioBase - precioEf) * qty).toFixed(6));
+            return {
+              producto_id: String(it.producto.id),
+              cantidad: qty,
+              precio_unitario: precioEf,
+              subtotal: sub,
+              descuento: desc,
+              total: sub,
+            };
+          });
 
         const { data: rpcData, error: rpcErr } = await supabase.rpc(
           "create_venta_with_detalle",
@@ -1706,7 +1783,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     } catch (e) {
       console.debug("refreshProducts after insertVenta failed", e);
     }
-    return ventaId;
+    return { ventaId, facturaNum };
   };
 
   // handle cleanup after a print/factura: delete original cotizacion if editing
@@ -1816,8 +1893,10 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
 
     const generator =
       printFormat === "cinta" ? generateFacturaHTMLCinta : generateFacturaHTML;
+    // Obtener CAI fresco desde Supabase antes de generar el HTML
+    const freshCaiDataCN = await fetchCaiDataForCurrentUser();
     const html = await generator(
-      { cliente: clienteNombre || "Cliente", rtn: clienteRTN || "" },
+      { cliente: clienteNombre || "Cliente", rtn: clienteRTN || "", caiInfo: freshCaiDataCN || caiInfoState },
       printingMode,
       {
         carrito,
@@ -1958,113 +2037,48 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             e,
           );
         }
-        await insertVenta({
+        const cnVentaResult = await insertVenta({
           clienteName: clienteNombre || "Cliente",
           rtn: clienteRTN || null,
           paymentPayload: paymentInfo,
           caiData,
           usuarioId: userId,
         });
+        if (cnVentaResult?.facturaNum) {
+          try { (window as any).__lastFacturaNumCN = cnVentaResult.facturaNum; } catch(e) {}
+        }
       } catch (e) {
         console.warn("Error insertando venta en flujo cliente normal:", e);
       }
     }
 
-    // Abrir en nueva ventana/pestaña para que funcione correctamente en móviles/tablets
-    try {
-      // Detectar si es móvil/tablet
-      const isMobile =
-        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-          navigator.userAgent,
-        );
+    // Generar HTML de copia única (para correo)
+    const facturaNumCN: string = (window as any).__lastFacturaNumCN || '';
+    try { delete (window as any).__lastFacturaNumCN; } catch(e) {}
+    const optsClienteNormal = {
+      cliente: clienteNombre || "Cliente",
+      rtn: clienteRTN || "",
+      inlineLogo: false,
+      caiInfo: freshCaiDataCN || caiInfoState,
+    };
+    const genParamsCN: any = {
+      carrito,
+      subtotal: subtotalCalc(),
+      isvTotal,
+      imp18Total,
+      impTouristTotal,
+      taxRate,
+      tax18Rate,
+      taxTouristRate,
+      total: total,
+      pagos: paymentInfo,
+      singleCopy: true,
+    };
+    const htmlForEmailCN = await (printingMode === "cotizacion"
+      ? generateCotizacionHTML(optsClienteNormal, printingMode, genParamsCN)
+      : generator(optsClienteNormal, printingMode, genParamsCN));
 
-      if (isMobile) {
-        // En móviles: usar blob URL para abrir en nueva pestaña
-        const blob = new Blob([html], { type: "text/html" });
-        const url = URL.createObjectURL(blob);
-        const newWindow = window.open(url, "_blank");
-
-        if (newWindow) {
-          // Limpiar el blob URL después de un tiempo
-          setTimeout(() => URL.revokeObjectURL(url), 10000);
-
-          // Intentar imprimir automáticamente después de cargar
-          newWindow.addEventListener("load", () => {
-            setTimeout(() => {
-              try {
-                newWindow.print();
-              } catch (e) {
-                console.debug(
-                  "Auto-print no disponible en este navegador móvil",
-                );
-              }
-            }, 500);
-          });
-        } else {
-          // Fallback si el popup fue bloqueado
-          alert(
-            "Por favor, permite ventanas emergentes para imprimir la factura",
-          );
-        }
-      } else {
-        // En desktop: abrir ventana normal
-        const printWindow = window.open("", "_blank", "width=800,height=600");
-        if (printWindow) {
-          printWindow.document.open();
-          printWindow.document.write(html);
-          printWindow.document.close();
-
-          // Esperar a que carguen las imágenes antes de imprimir
-          const imgs = printWindow.document.images;
-          if (imgs && imgs.length > 0) {
-            let loaded = 0;
-            const checkLoaded = () => {
-              loaded++;
-              if (loaded === imgs.length) {
-                setTimeout(() => {
-                  try {
-                    printWindow.focus();
-                    printWindow.print();
-                  } catch (e) {
-                    console.warn("Error al imprimir:", e);
-                  }
-                }, 300);
-              }
-            };
-
-            for (let i = 0; i < imgs.length; i++) {
-              const img = imgs[i] as HTMLImageElement;
-              if (img.complete) {
-                checkLoaded();
-              } else {
-                img.addEventListener("load", checkLoaded);
-                img.addEventListener("error", checkLoaded);
-              }
-            }
-          } else {
-            // Sin imágenes, imprimir directamente
-            setTimeout(() => {
-              try {
-                printWindow.focus();
-                printWindow.print();
-              } catch (e) {
-                console.warn("Error al imprimir:", e);
-              }
-            }, 300);
-          }
-        } else {
-          alert(
-            "Por favor, permite ventanas emergentes para imprimir la factura",
-          );
-        }
-      }
-    } catch (e) {
-      console.error("Error abriendo ventana de impresión:", e);
-      alert(
-        "Error al abrir la ventana de impresión. Por favor, verifica los permisos de ventanas emergentes.",
-      );
-    }
-    const afterFinish = async () => {
+    const afterDeliveryCN = async () => {
       if (printingMode === "factura") {
         vaciarCarrito();
         await handlePostPrint();
@@ -2076,9 +2090,17 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         });
         setCotizacionConfirmOpen(true);
       }
+      setClienteNormalModalOpen(false);
     };
-    await afterFinish();
-    setClienteNormalModalOpen(false);
+
+    await openDeliveryChoice(
+      html,
+      htmlForEmailCN,
+      afterDeliveryCN,
+      clienteCorreo,
+      printingMode as "factura" | "cotizacion",
+      facturaNumCN,
+    );
   };
 
   const [view, setView] = useState<string | null>(null);
@@ -2354,6 +2376,54 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const [ncInfoState, setNcInfoState] = useState<any | null>(null);
   const [datosFacturaOpen, setDatosFacturaOpen] = useState(false);
   const [imageUrls, setImageUrls] = useState<Record<string, string | null>>({});
+
+  // helper: fetch cai row for the current user directly from Supabase (no state)
+  const fetchCaiDataForCurrentUser = async (): Promise<any | null> => {
+    let caiData: any = null;
+    try {
+      const rawU = localStorage.getItem("user");
+      const parsedU = rawU ? JSON.parse(rawU) : null;
+      const rawUserId: any = parsedU
+        ? parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id || null
+        : null;
+      const rawUserName: any = parsedU
+        ? parsedU.username || parsedU.user?.username || parsedU.name || parsedU.user?.name || null
+        : null;
+      const userIdQuery: any =
+        rawUserId != null && typeof rawUserId === "string" && /^\d+$/.test(rawUserId)
+          ? Number(rawUserId)
+          : rawUserId;
+      if (userIdQuery != null) {
+        try {
+          const { data, error } = await supabase
+            .from("cai")
+            .select("id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual")
+            .eq("usuario_id", userIdQuery)
+            .order("id", { ascending: false })
+            .limit(1);
+          if (!error && Array.isArray(data) && data.length > 0) caiData = data[0];
+        } catch (e) { /* column may not exist */ }
+      }
+      if (!caiData && rawUserName) {
+        try {
+          const { data, error } = await supabase
+            .from("cai")
+            .select("id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual")
+            .eq("cajero", rawUserName)
+            .order("id", { ascending: false })
+            .limit(1);
+          if (!error && Array.isArray(data) && data.length > 0) caiData = data[0];
+        } catch (e) { /* ignore */ }
+      }
+      if (caiData) {
+        try { localStorage.setItem("caiInfo", JSON.stringify(caiData)); } catch (e) {}
+        setCaiInfoState(caiData);
+      }
+    } catch (e) {
+      console.debug("fetchCaiDataForCurrentUser error:", e);
+    }
+    return caiData;
+  };
 
   // function to refresh caiInfo from backend and update state/localStorage
   const refreshCaiInfo = async () => {
@@ -3119,7 +3189,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 tdStyle={tdStyle}
                 skuStyle={skuStyle}
               />
-              {/* Botones de filtro por tipo */}
+              {/* Botón Nueva Factura */}
               <div
                 className="pdv-buttons"
                 style={{
@@ -3133,58 +3203,22 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               >
                 <button
                   className="pdv-button"
-                  onClick={() => setTipoFiltro("producto")}
+                  onClick={() => setShowNuevaFacturaModal(true)}
                   style={{
-                    padding: "8px 20px",
-                    borderRadius: 6,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    border: "1px solid",
-                    borderColor:
-                      tipoFiltro === "producto" ? "#0ea5e9" : "#e2e8f0",
-                    background: tipoFiltro === "producto" ? "#0ea5e9" : "white",
-                    color: tipoFiltro === "producto" ? "white" : "#64748b",
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  📦 Producto
-                </button>
-                <button
-                  className="pdv-button"
-                  onClick={() => setTipoFiltro("servicio")}
-                  style={{
-                    padding: "8px 20px",
-                    borderRadius: 6,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    border: "1px solid",
-                    borderColor:
-                      tipoFiltro === "servicio" ? "#0ea5e9" : "#e2e8f0",
-                    background: tipoFiltro === "servicio" ? "#0ea5e9" : "white",
-                    color: tipoFiltro === "servicio" ? "white" : "#64748b",
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  ⚙️ Servicio
-                </button>
-                <button
-                  className="pdv-button"
-                  onClick={() => setShowEntradaManualModal(true)}
-                  style={{
-                    padding: "8px 20px",
-                    borderRadius: 6,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    border: "1px solid #10b981",
-                    background: "#10b981",
+                    padding: "10px 32px",
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: 700,
+                    border: "none",
+                    background:
+                      "linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)",
                     color: "white",
                     cursor: "pointer",
+                    boxShadow: "0 4px 10px rgba(14,165,233,0.35)",
                     transition: "all 0.15s ease",
                   }}
                 >
-                  ➕ Entrada Manual
+                  🧾 Nueva Factura
                 </button>
               </div>
             </div>
@@ -3195,6 +3229,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               actualizarCantidad={actualizarCantidad}
               eliminarDelCarrito={eliminarDelCarrito}
               vaciarCarrito={vaciarCarrito}
+              aplicarDescuento={aplicarDescuento}
               subtotal={subtotal}
               perItemTaxes={perItemTaxes}
               taxRate={taxRate}
@@ -3236,6 +3271,50 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               }
             }
             setPaymentModalOpen(false);
+          }}
+        />
+
+        {/* Modal: Imprimir o Enviar por Correo */}
+        <PrintOrEmailModal
+          open={showDeliveryModal}
+          docType={pendingDocType}
+          onClose={() => setShowDeliveryModal(false)}
+          onPrint={async () => {
+            setShowDeliveryModal(false);
+            try {
+              await doPrintHtml(pendingHtmlPrint);
+            } catch (e) {
+              console.warn("Error imprimiendo:", e);
+            }
+            if (pendingAfterDelivery) {
+              try {
+                await pendingAfterDelivery();
+              } catch (e) {}
+            }
+            setPendingAfterDelivery(null);
+          }}
+          onEmail={() => {
+            setShowDeliveryModal(false);
+            setShowEmailModal(true);
+          }}
+        />
+
+        {/* Modal: Ingresar correo y enviar */}
+        <EmailFacturaModal
+          open={showEmailModal}
+          docType={pendingDocType}
+          initialEmail={pendingEmailHint}
+          htmlContent={pendingHtmlEmail}
+          facturaNumero={pendingFacturaNumero}
+          onClose={() => setShowEmailModal(false)}
+          onAfterSend={async () => {
+            setShowEmailModal(false);
+            if (pendingAfterDelivery) {
+              try {
+                await pendingAfterDelivery();
+              } catch (e) {}
+            }
+            setPendingAfterDelivery(null);
           }}
         />
 
@@ -3442,6 +3521,22 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           </div>
         )}
 
+        {/* Modal: Nueva Factura - selector de tipo */}
+        {showNuevaFacturaModal && (
+          <NuevaFacturaModal
+            tipoFiltro={tipoFiltro}
+            onSelectTipo={(tipo) => {
+              setTipoFiltro(tipo);
+              setShowNuevaFacturaModal(false);
+            }}
+            onEntradaManual={() => {
+              setShowNuevaFacturaModal(false);
+              setShowEntradaManualModal(true);
+            }}
+            onClose={() => setShowNuevaFacturaModal(false)}
+          />
+        )}
+
         {/* Modal: Entrada Manual de Servicio */}
         {showEntradaManualModal && (
           <EntradaManualModal
@@ -3639,6 +3734,167 @@ function EntradaManualModal({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// Componente Modal Nueva Factura
+function NuevaFacturaModal({
+  tipoFiltro,
+  onSelectTipo,
+  onEntradaManual,
+  onClose,
+}: {
+  tipoFiltro: "producto" | "servicio";
+  onSelectTipo: (tipo: "producto" | "servicio") => void;
+  onEntradaManual: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 9000,
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "white",
+          borderRadius: 16,
+          padding: 32,
+          width: 360,
+          boxShadow: "0 20px 40px rgba(0,0,0,0.25)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 24,
+          }}
+        >
+          <h3
+            style={{
+              margin: 0,
+              fontSize: "1.2rem",
+              color: "#1e293b",
+              fontWeight: 700,
+            }}
+          >
+            🧾 Nueva Factura
+          </h3>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              fontSize: 22,
+              cursor: "pointer",
+              color: "#94a3b8",
+            }}
+          >
+            ×
+          </button>
+        </div>
+        <p
+          style={{
+            color: "#64748b",
+            fontSize: 13,
+            marginBottom: 24,
+            marginTop: 0,
+          }}
+        >
+          Selecciona el tipo de ítem que deseas agregar:
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <button
+            onClick={() => onSelectTipo("producto")}
+            style={{
+              padding: "14px 20px",
+              borderRadius: 10,
+              border: `2px solid ${tipoFiltro === "producto" ? "#0ea5e9" : "#e2e8f0"}`,
+              background: tipoFiltro === "producto" ? "#f0f9ff" : "white",
+              color: tipoFiltro === "producto" ? "#0284c7" : "#374151",
+              cursor: "pointer",
+              fontWeight: 700,
+              fontSize: 15,
+              textAlign: "left",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              transition: "all 0.15s",
+            }}
+          >
+            <span style={{ fontSize: 24 }}>📦</span>
+            <div>
+              <div>Producto</div>
+              <div style={{ fontWeight: 400, fontSize: 12, color: "#64748b" }}>
+                Artículos físicos del inventario
+              </div>
+            </div>
+          </button>
+          <button
+            onClick={() => onSelectTipo("servicio")}
+            style={{
+              padding: "14px 20px",
+              borderRadius: 10,
+              border: `2px solid ${tipoFiltro === "servicio" ? "#0ea5e9" : "#e2e8f0"}`,
+              background: tipoFiltro === "servicio" ? "#f0f9ff" : "white",
+              color: tipoFiltro === "servicio" ? "#0284c7" : "#374151",
+              cursor: "pointer",
+              fontWeight: 700,
+              fontSize: 15,
+              textAlign: "left",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              transition: "all 0.15s",
+            }}
+          >
+            <span style={{ fontSize: 24 }}>⚙️</span>
+            <div>
+              <div>Servicio</div>
+              <div style={{ fontWeight: 400, fontSize: 12, color: "#64748b" }}>
+                Servicios catalogados
+              </div>
+            </div>
+          </button>
+          <button
+            onClick={onEntradaManual}
+            style={{
+              padding: "14px 20px",
+              borderRadius: 10,
+              border: "2px solid #10b981",
+              background: "#f0fdf4",
+              color: "#059669",
+              cursor: "pointer",
+              fontWeight: 700,
+              fontSize: 15,
+              textAlign: "left",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              transition: "all 0.15s",
+            }}
+          >
+            <span style={{ fontSize: 24 }}>➕</span>
+            <div>
+              <div>Entrada Manual</div>
+              <div style={{ fontWeight: 400, fontSize: 12, color: "#64748b" }}>
+                Crear servicio al vuelo
+              </div>
+            </div>
+          </button>
+        </div>
       </div>
     </div>
   );
