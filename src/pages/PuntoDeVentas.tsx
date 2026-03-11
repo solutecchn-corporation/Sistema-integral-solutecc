@@ -317,6 +317,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const [createClienteModalOpen, setCreateClienteModalOpen] = useState(false);
   const [cotizacionModalOpen, setCotizacionModalOpen] = useState(false);
   const skipCotizacionConfirmRef = useRef(false);
+  const postPaymentCallbackRef = useRef<((p: any) => Promise<void>) | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [paymentDone, setPaymentDone] = useState(false);
   const [paymentInfo, setPaymentInfo] = useState<any | null>(null);
@@ -337,6 +338,8 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [printFormat, setPrintFormat] = useState<"carta" | "cinta">("carta");
   const [cajaConfigOpen, setCajaConfigOpen] = useState(false);
+  const [direccionClienteFinal, setDireccionClienteFinal] = useState("");
+  const [clienteDireccion, setClienteDireccion] = useState("");
 
   // Autocomplete RTN -> nombre: intenta traer nombre desde `clientenatural` o `clientejuridico` según `clienteTipo`
   const handleRTNChange = async (val: string) => {
@@ -489,10 +492,19 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           .eq("id", cotizacionId);
         if (upErr) {
           // Si falla por columna inexistente, reintentar sin direccion_cliente
-          if (upErr.code === "42703" || String(upErr.message).includes("direccion_cliente")) {
+          if (
+            upErr.code === "42703" ||
+            String(upErr.message).includes("direccion_cliente")
+          ) {
             delete updatePayload.direccion_cliente;
-            const { error: upErr2 } = await supabase.from("cotizaciones").update(updatePayload).eq("id", cotizacionId);
-            if (upErr2) { console.warn("Error actualizando cotizacion:", upErr2); return null; }
+            const { error: upErr2 } = await supabase
+              .from("cotizaciones")
+              .update(updatePayload)
+              .eq("id", cotizacionId);
+            if (upErr2) {
+              console.warn("Error actualizando cotizacion:", upErr2);
+              return null;
+            }
           } else {
             console.warn("Error actualizando cotizacion:", upErr);
             return null;
@@ -515,30 +527,38 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             } catch (e) {}
           } else {
             numeroToReturn = numeroCot;
-            try { setCotizacionLastNumero(numeroCot); } catch (e) {}
+            try {
+              setCotizacionLastNumero(numeroCot);
+            } catch (e) {}
           }
         } catch (e) {
           numeroToReturn = numeroCot;
-          try { setCotizacionLastNumero(numeroCot); } catch (e) {}
+          try {
+            setCotizacionLastNumero(numeroCot);
+          } catch (e) {}
         }
       } else {
         let insData: any = null;
         let insErr: any = null;
         // Primer intento (con direccion_cliente si está presente)
-        ({ data: insData, error: insErr } = await supabase
+        ({ data: insData, error: insErr } = (await supabase
           .from("cotizaciones")
           .insert([payload])
           .select("*")
-          .maybeSingle() as any);
+          .maybeSingle()) as any);
         // Si falla por columna inexistente, reintentar sin direccion_cliente
-        if (insErr && (insErr.code === "42703" || String(insErr.message || "").includes("direccion_cliente"))) {
+        if (
+          insErr &&
+          (insErr.code === "42703" ||
+            String(insErr.message || "").includes("direccion_cliente"))
+        ) {
           const payloadSinDir = { ...payload };
           delete payloadSinDir.direccion_cliente;
-          ({ data: insData, error: insErr } = await supabase
+          ({ data: insData, error: insErr } = (await supabase
             .from("cotizaciones")
             .insert([payloadSinDir])
             .select("*")
-            .maybeSingle() as any);
+            .maybeSingle()) as any);
         }
         if (insErr) {
           console.warn("Error insertando cotizacion:", insErr);
@@ -702,8 +722,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       0,
     );
 
-  const doFacturaClienteFinal = async () => {
+  const doFacturaClienteFinal = async (direccion: string = "") => {
     // abrir flujo de pago antes de facturar para Consumidor Final
+    setDireccionClienteFinal(direccion);
     setClienteTipo("final");
     setClienteNombre("Consumidor Final");
     setClienteRTN("C/F");
@@ -719,6 +740,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     setClienteTipo("normal");
     setClienteNombre("");
     setClienteRTN("");
+    setClienteDireccion("");
     setPaymentDone(false);
     setPaymentInfo(null);
     setClienteNormalModalOpen(true);
@@ -729,6 +751,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     setClienteTipo("juridico");
     setClienteNombre("");
     setClienteRTN("");
+    setClienteDireccion("");
     setPaymentDone(false);
     setPaymentInfo(null);
     setClienteNormalModalOpen(true);
@@ -836,8 +859,12 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     // Obtener CAI fresco desde Supabase antes de generar el HTML
     const freshCaiData = await fetchCaiDataForCurrentUser();
     if (freshCaiData) optsForGenerator.caiInfo = freshCaiData;
+    // Siempre incluir direccion del cliente si se pasó
+    if (direccionCliente) optsForGenerator.direccionCliente = direccionCliente;
     // Activar modo cotización si printingMode lo dice O si se pasó un número de cotización explícito
-    const isCotizacion = printingMode === "cotizacion" || cotizacionNumero != null || direccionCliente != null;
+    const isCotizacion =
+      printingMode === "cotizacion" ||
+      cotizacionNumero != null;
     if (isCotizacion) {
       generator = generateCotizacionHTML;
       // prefer explicit cotizacionNumero, fallback to last saved numero from state
@@ -846,9 +873,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       // also accept legacy field name
       if (optsForGenerator.cotizacion == null && cotizacionLastNumero)
         optsForGenerator["Número"] = cotizacionLastNumero;
-      // include direccion si nos lo pasaron
-      if (direccionCliente)
-        optsForGenerator.direccionCliente = direccionCliente;
+      // include direccion si nos lo pasaron (ya se añadió arriba)
     }
     const html = await generator(optsForGenerator, printingMode, {
       carrito,
@@ -976,6 +1001,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           paymentPayload,
           caiData,
           usuarioId: userId,
+          direccionCliente: optsForGenerator.direccionCliente,
         });
         if (ventaResult?.facturaNum) {
           try {
@@ -1049,12 +1075,14 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     paymentPayload,
     caiData,
     usuarioId,
+    direccionCliente,
   }: {
     clienteName?: string;
     rtn?: string | null;
     paymentPayload?: any;
     caiData?: any;
     usuarioId?: string | null;
+    direccionCliente?: string;
   }) => {
     if (!carrito || carrito.length === 0) return null;
     const tipoPagoValue =
@@ -1159,6 +1187,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         null,
       fecha_limite_emision:
         usedCai?.fecha_vencimiento ?? usedCai?.fecha_limite_emision ?? null,
+      ...(direccionCliente ? { direccion_cliente: direccionCliente } : {}),
     };
 
     // compute sub_exonerado/sub_exento/sub_gravado from carrito
@@ -1291,6 +1320,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         delete minimalPayload.sub_exonerado;
         delete minimalPayload.sub_exento;
         delete minimalPayload.sub_gravado;
+        delete minimalPayload.direccion_cliente;
         try {
           const res2 = await supabase
             .from("ventas")
@@ -1859,7 +1889,8 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     }
   }, [clienteNormalModalOpen]);
 
-  const submitClienteNormal = async () => {
+  const submitClienteNormal = async (paymentInfoOverride?: any) => {
+    const efectivoPago = paymentInfoOverride !== undefined ? paymentInfoOverride : paymentInfo;
     // guardar/actualizar cliente en la tabla `clientenatural`
     try {
       if (clienteRTN && clienteNombre) {
@@ -1936,6 +1967,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         cliente: clienteNombre || "Cliente",
         rtn: clienteRTN || "",
         caiInfo: freshCaiDataCN || caiInfoState,
+        ...(clienteDireccion ? { direccionCliente: clienteDireccion } : {}),
       },
       printingMode,
       {
@@ -1948,7 +1980,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         tax18Rate,
         taxTouristRate,
         total: total,
-        pagos: paymentInfo,
+        pagos: efectivoPago,
       },
     );
 
@@ -2080,9 +2112,10 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         const cnVentaResult = await insertVenta({
           clienteName: clienteNombre || "Cliente",
           rtn: clienteRTN || null,
-          paymentPayload: paymentInfo,
+          paymentPayload: efectivoPago,
           caiData,
           usuarioId: userId,
+          ...(clienteDireccion ? { direccionCliente: clienteDireccion } : {}),
         });
         if (cnVentaResult?.facturaNum) {
           try {
@@ -2104,6 +2137,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       rtn: clienteRTN || "",
       inlineLogo: false,
       caiInfo: freshCaiDataCN || caiInfoState,
+      ...(clienteDireccion ? { direccionCliente: clienteDireccion } : {}),
     };
     const genParamsCN: any = {
       carrito,
@@ -2115,7 +2149,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       tax18Rate,
       taxTouristRate,
       total: total,
-      pagos: paymentInfo,
+      pagos: efectivoPago,
       singleCopy: true,
     };
     const htmlForEmailCN = await (printingMode === "cotizacion"
@@ -3328,9 +3362,17 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             if (invoiceAfterPayment) {
               try {
                 setInvoiceAfterPayment(false);
-                await finalizeFacturaForCliente("Consumidor Final", "C/F", p);
+                await finalizeFacturaForCliente("Consumidor Final", "C/F", p, null, direccionClienteFinal);
               } catch (e) {
                 console.warn("Error facturando después del pago:", e);
+              }
+            } else if (postPaymentCallbackRef.current) {
+              try {
+                const cb = postPaymentCallbackRef.current;
+                postPaymentCallbackRef.current = null;
+                await cb(p);
+              } catch (e) {
+                console.warn("Error en postPaymentCallback:", e);
               }
             }
             setPaymentModalOpen(false);
@@ -3439,9 +3481,14 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           onCreateCliente={() => setCreateClienteModalOpen(true)}
           onCancel={() => setClienteNormalModalOpen(false)}
           onOpenCreateCliente={() => setCreateClienteModalOpen(true)}
-          onOpenPayment={() => setPaymentModalOpen(true)}
+          onOpenPayment={() => {
+            postPaymentCallbackRef.current = (p: any) => submitClienteNormal(p);
+            setPaymentModalOpen(true);
+          }}
           paymentDone={paymentDone}
           submitClienteNormal={submitClienteNormal}
+          clienteDireccion={clienteDireccion}
+          onDireccionChange={setClienteDireccion}
         />
 
         <CreateClienteModal

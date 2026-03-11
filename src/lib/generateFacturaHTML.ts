@@ -227,6 +227,13 @@ export async function generateFacturaHTML(
     cambio = isNaN(computed) ? 0 : computed > 0 ? computed : 0;
   }
 
+  // Formateo de moneda: separador miles ',' y decimales '.'
+  const fmtMoney = (n: number) =>
+    Number(n || 0).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
   const buildProductosTabla = () => {
     return carrito
       .map((i: any) => {
@@ -237,14 +244,12 @@ export async function generateFacturaHTML(
             "",
         );
         const cant = Number(i.cantidad || 0);
-        // precio por unidad incluyendo impuestos (valor bruto tal como está en producto.precio)
         const precioBrutoUnit = Number(
           (i.producto && (i.producto.precio ?? i.producto.precio_unitario)) ??
             i.precio_unitario ??
             i.precio ??
             0,
         );
-        // determinar si el producto está exento o aplica impuestos especiales
         const exento =
           Boolean(i.producto && i.producto.exento) || Boolean(i.exento);
         const aplica18 =
@@ -253,7 +258,6 @@ export async function generateFacturaHTML(
         const aplicaTur =
           Boolean(i.producto && i.producto.aplica_impuesto_turistico) ||
           Boolean(i.aplica_impuesto_turistico);
-        // tasas preferidas desde params (si fueron pasadas al generar la factura)
         const mainRate = aplica18
           ? (params.tax18Rate ?? params.tax18 ?? 0)
           : (params.taxRate ?? params.tax ?? 0);
@@ -261,16 +265,13 @@ export async function generateFacturaHTML(
           ? (params.taxTouristRate ?? params.taxTourist ?? 0)
           : 0;
         const combined = (Number(mainRate) || 0) + (Number(turRate) || 0);
-        // precio unitario SIN impuestos: si está exento o no hay tasas, es igual al bruto
         let precioUnitario = precioBrutoUnit;
         if (!exento && combined > 0) {
           precioUnitario = precioBrutoUnit / (1 + combined);
         }
-        const precioStr = Number(precioUnitario || 0).toFixed(2);
         const subtotalLinea = precioUnitario * cant;
-        const subtotalStr = Number(subtotalLinea || 0).toFixed(2);
         const sku = (i.producto && i.producto.sku) || i.sku || "";
-        return `<tr><td>${sku} ${desc}</td><td style="text-align:center">${cant}</td><td style="text-align:right">L ${precioStr}</td><td style="text-align:right">L ${subtotalStr}</td></tr>`;
+        return `<tr><td>${sku} ${desc}</td><td style="text-align:center">${cant}</td><td style="text-align:right">L ${fmtMoney(precioUnitario)}</td><td style="text-align:right">L ${fmtMoney(subtotalLinea)}</td></tr>`;
       })
       .join("\n");
   };
@@ -482,8 +483,8 @@ export async function generateFacturaHTML(
         return `<tr>
           <td style="height:52px;vertical-align:middle;font-size:16px;font-weight:700;border:1px solid #9b9b9b;padding:14px 12px;">${sku ? sku + " – " : ""}${desc}</td>
           <td style="height:52px;vertical-align:middle;font-size:16px;font-weight:700;border:1px solid #9b9b9b;padding:14px 12px;text-align:right;">${cant}</td>
-          <td style="height:52px;vertical-align:middle;font-size:16px;font-weight:700;border:1px solid #9b9b9b;padding:14px 12px;text-align:right;">L ${precioUnitario.toFixed(2)}</td>
-          <td style="height:52px;vertical-align:middle;font-size:16px;font-weight:700;border:1px solid #9b9b9b;padding:14px 12px;text-align:right;">L ${subtotalLinea.toFixed(2)}</td>
+          <td style="height:52px;vertical-align:middle;font-size:16px;font-weight:700;border:1px solid #9b9b9b;padding:14px 12px;text-align:right;">L ${fmtMoney(precioUnitario)}</td>
+          <td style="height:52px;vertical-align:middle;font-size:16px;font-weight:700;border:1px solid #9b9b9b;padding:14px 12px;text-align:right;">L ${fmtMoney(subtotalLinea)}</td>
         </tr>`;
       })
       .join("\n");
@@ -506,7 +507,6 @@ export async function generateFacturaHTML(
     :root { --border: #9b9b9b; }
     body { font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #111; background: #fff; }
     .sheet { width: 100%; }
-    h1 { text-align: center; margin: 6px 0 10px; font-size: 28px; font-weight: 800; letter-spacing: 0.3px; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
     td, th { border: 1px solid var(--border); padding: 14px 12px; vertical-align: top; font-size: 16px; }
     .top td { height: 148px; }
@@ -514,37 +514,37 @@ export async function generateFacturaHTML(
     .fecha { font-size: 17px; font-weight: 700; margin-top: 10px; }
     .items th { text-align: center; font-size: 16px; font-weight: 800; vertical-align: middle; height: 46px; }
     .grand-total { text-align: right; font-size: 18px; font-weight: 900; padding: 16px 14px; }
-    .footer td { text-align: center; padding: 14px 20px 12px; }
     @media print { body { margin: 0; } }
   </style>
 </head>
 <body>
 <div class="sheet">
 
-  <h1>${empresaNombre}</h1>
-
-  <table class="top">
+ <table class="top">
     <colgroup>
       <col style="width:23%"/>
-      <col style="width:27%"/>
-      <col style="width:12%"/>
+      <col style="width:39%"/>
       <col style="width:38%"/>
     </colgroup>
     <tr>
       <td style="vertical-align:middle;">${logoHtmlCot}</td>
-      <td>
-        <div style="font-size:16px;line-height:1.8;"><b>Dirección:</b> ${direccion}</div>
-        <div style="font-size:16px;line-height:1.8;"><b>Teléfono:</b> ${telefono}</div>
-        <div style="font-size:16px;line-height:1.8;"><b>Email:</b> ${EM}</div>
-        <div style="font-size:16px;line-height:1.8;"><b>RTN:</b> ${rtnEmp}</div>
+      <td style="vertical-align:top;">
+        <div style="font-size:24px;font-weight:bold;margin-bottom:10px;">${empresaNombre}</div>
+        <div style="font-size:18px;font-weight:bold;line-height:1.8;">Dirección: ${direccion}</div>
+        <div style="font-size:18px;font-weight:bold;line-height:1.8;">Teléfono: ${telefono}</div>
+        <div style="font-size:18px;font-weight:bold;line-height:1.8;">Email: ${EM}</div>
+        <div style="font-size:18px;font-weight:bold;line-height:1.8;">RTN: ${rtnEmp}</div>
       </td>
-      <td></td>
       <td style="position:relative;vertical-align:top;">
-        <div class="quote-title">COTIZACIÓN<br/>No. ${factura}</div>
-        <div class="fecha">Fecha: ${diaN}/${mesN}/${anioN}</div>
+        <div class="quote-title" style="font-size:26px;font-weight:bold;">
+          COTIZACIÓN<br/>No. ${factura}
+        </div>
+        <div class="fecha" style="font-size:18px;font-weight:bold;">
+          Fecha: ${diaN}/${mesN}/${anioN}
+        </div>
       </td>
     </tr>
-  </table>
+</table>
 
   <table style="margin-top:8px;">
     <tr><td style="height:48px;vertical-align:middle;font-size:17px;font-weight:700;"><b>Cliente:</b> ${cliente}</td></tr>
@@ -577,24 +577,24 @@ export async function generateFacturaHTML(
     </colgroup>
     <tr>
       <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;"><b>Descuento:</b></td>
-      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${DSC.toFixed(2)}</td>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${fmtMoney(DSC)}</td>
       <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;"><b>Sub Total Gravado:</b></td>
-      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${Number(Gravado).toFixed(2)}</td>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${fmtMoney(Gravado)}</td>
     </tr>
     <tr>
       <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;"><b>Sub Total Exento:</b></td>
-      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${Number(Exento).toFixed(2)}</td>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${fmtMoney(Exento)}</td>
       <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;"><b>Sub Total Exonerado:</b></td>
-      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${Number(exonerado).toFixed(2)}</td>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${fmtMoney(exonerado)}</td>
     </tr>
     <tr>
       <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;"><b>ISV 15%:</b></td>
-      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${Number(impuesto).toFixed(2)}</td>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${fmtMoney(impuesto)}</td>
       <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;"><b>ISV 18%:</b></td>
-      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${Number(ISV18).toFixed(2)}</td>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${fmtMoney(ISV18)}</td>
     </tr>
     <tr>
-      <td colspan="4" class="grand-total">TOTAL COTIZACIÓN: L ${ft.toFixed(2)}</td>
+      <td colspan="4" class="grand-total">TOTAL COTIZACIÓN: L ${fmtMoney(ft)}</td>
     </tr>
   </table>
 
@@ -614,31 +614,149 @@ export async function generateFacturaHTML(
   }
   // ─────────────────────────────────────────────────────────────────────────────
 
+  const logoHtmlFactura = logoSrc
+    ? `<img src="${logoSrc}" alt="Logo" style="max-width:100%;max-height:80px;object-fit:contain;display:block;margin:auto;" />`
+    : `<div style="height:60px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#999;border:1px dashed #aaa;">LOGO</div>`;
+
+  const buildFacturaCopia = (labelCopia: string) => `
+<div class="copia">
+
+  <table class="header-table">
+    <colgroup>
+      <col style="width:25%"/>
+      <col style="width:45%"/>
+      <col style="width:30%"/>
+    </colgroup>
+    <tr>
+      <td class="text-center">
+        ${logoHtmlFactura}
+      </td>
+      <td style="vertical-align:top; padding-top: 5px;">
+        <div class="title">${empresaNombre}</div>
+        <div class="sub-title">R.A.C.P</div>
+        <div style="font-size:8px;line-height:1.3;">
+          <span class="bold">R.T.N:</span> ${rtnEmp}<br>
+          <span class="bold">Dirección:</span> ${direccion}<br>
+          <span class="bold">Teléfono:</span> ${telefono}<br>
+          <span class="bold">Email:</span> ${EM}
+        </div>
+      </td>
+      <td class="text-center" style="vertical-align:middle;">
+        <div class="bold" style="font-size:11px;">Factura No. ${factura}</div>
+        <div style="font-size:10px;margin-top:8px;" class="bold">Fecha: ${diaN}/${mesN}/${anioN}</div>
+      </td>
+    </tr>
+  </table>
+
+  <table>
+    <tr class="info-row"><td><span class="bold" style="font-size: 12px;">Cliente: ${cliente}</span></td></tr>
+    <tr class="info-row"><td><span class="bold" style="font-size: 12px;">RTN : ${identidad}</span></td></tr>
+    <tr class="info-row"><td><span class="bold" style="font-size: 12px;">Dirección: ${direccionCliente || "—"}</span></td></tr>
+  </table>
+
+  <table>
+    <colgroup>
+      <col style="width:55%"/>
+      <col style="width:15%"/>
+      <col style="width:15%"/>
+      <col style="width:15%"/>
+    </colgroup>
+    <tr>
+      <th class="product-th">Descripción</th>
+      <th class="product-th">Cantidad</th>
+      <th class="product-th">Precio Unit.</th>
+      <th class="product-th">Total</th>
+    </tr>
+    ${tabla}
+  </table>
+
+  <table>
+    <colgroup>
+      <col style="width:30%"/>
+      <col style="width:20%"/>
+      <col style="width:30%"/>
+      <col style="width:20%"/>
+    </colgroup>
+    <tr>
+      <td class="bold">Descuento:</td>
+      <td class="bold">L ${fmtMoney(DSC)}</td>
+      <td class="bold">Sub Total Gravado:</td>
+      <td class="bold">L ${fmtMoney(Gravado)}</td>
+    </tr>
+    <tr>
+      <td class="bold">Sub Total Exento:</td>
+      <td class="bold">L ${fmtMoney(Exento)}</td>
+      <td class="bold">Sub Total Exonerado:</td>
+      <td class="bold">L ${fmtMoney(exonerado)}</td>
+    </tr>
+    <tr>
+      <td class="bold">ISV 15%:</td>
+      <td class="bold">L ${fmtMoney(impuesto)}</td>
+      <td class="bold">ISV 18%:</td>
+      <td class="bold">L ${fmtMoney(ISV18)}</td>
+    </tr>
+    <tr>
+      <td colspan="4" class="grand-total">TOTAL FACTURA: L ${fmtMoney(ft)}</td>
+    </tr>
+  </table>
+
+  <table>
+    <colgroup>
+      <col style="width:25%"/>
+      <col style="width:25%"/>
+      <col style="width:25%"/>
+      <col style="width:25%"/>
+    </colgroup>
+    <tr>
+      <td class="text-center bold">Efectivo: L ${fmtMoney(Efectivo)}</td>
+      <td class="text-center bold">Tarjeta: L ${fmtMoney(Tarjeta)}</td>
+      <td class="text-center bold">Transferencia: L ${fmtMoney(Transferencia)}</td>
+      <td class="text-center bold">Cambio: L ${fmtMoney(cambio)}</td>
+    </tr>
+  </table>
+
+  <table>
+    <tr>
+      <td class="text-center bold letras-total">*** ${letras} Lempiras ***</td>
+    </tr>
+  </table>
+
+  <table>
+    <tr class="info-row"><td><span class="bold" style="font-size:12px;">CAI: ${CAI}</span></td></tr>
+    <tr class="info-row"><td><span class="bold" style="font-size:12px;">Rango autorizado: ${rangoStr}</span></td></tr>
+    <tr class="info-row"><td><span class="bold" style="font-size:12px;">Fecha límite de emisión: ${fechaLimiteEmision}</span></td></tr>
+  </table>
+
+  <table style="border: none;">
+    <tr>
+      <td style="border: none; text-align: center; padding-top: 4px;">
+        <div class="bold" style="font-size: 12px;">¡Gracias por su compra!</div>
+        <div class="bold" style="font-size: 13px; margin-top: 2px;">LA FACTURA ES BENEFICIO DE TODOS, EXÍJALA</div>
+        <div style="font-size:7px;color:#666;margin-top:3px;">${labelCopia}</div>
+      </td>
+    </tr>
+  </table>
+
+</div>`;
+
   const htmlOutput = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Factura ${factura}</title>
   <style>
-    /* ─── Página: carta, dos copias verticales ─── */
-    @page { size: letter portrait; margin: 0.25in 0.35in; }
+    /* Tamaño carta vertical, márgenes ajustados */
+    @page { size: 8.5in 11in; margin: 0.3in; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, Helvetica, sans-serif; font-size: 8.5px; color: #000; background: #fff; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 10px; color: #000; background: #fff; }
 
-    /* ─── Contenedor de las dos copias ─── */
     .page-wrap { width: 100%; }
-
-    /* ─── Cada copia ocupa la mitad de la hoja ─── */
-    .copia {
-      width: 100%;
-      padding: 4px 0;
-      page-break-inside: avoid;
-    }
-    /* Separador entre las dos copias */
+    .copia { width: 100%; page-break-inside: avoid; padding: 4px 0; }
     .separador {
       border: none;
       border-top: 1.5px dashed #888;
-      margin: 6px 0;
+      margin: 8px 0;
       position: relative;
     }
     .separador::after {
@@ -652,113 +770,26 @@ export async function generateFacturaHTML(
       color: #888;
     }
 
-    /* ─── Nombre empresa ─── */
-    .empresa-nombre {
-      font-size: 15px;
-      font-weight: 900;
-      text-align: center;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      border-bottom: 2px solid #000;
-      padding-bottom: 3px;
-      margin-bottom: 4px;
-    }
+    /* Estilos generales de tabla */
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 3px; }
+    td, th { border: 1px solid #ccc; padding: 3px 4px; vertical-align: middle; font-size: 9px; }
 
-    /* ─── Tabla principal del encabezado ─── */
-    .header-table {
-      width: 100%;
-      border-collapse: collapse;
-      border: 1px solid #000;
-      margin-bottom: 3px;
-    }
-    .header-table td { vertical-align: top; border: none; }
+    /* Utilidades de texto */
+    .bold { font-weight: bold; }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
 
-    /* LOGO */
-    .td-logo { width: 70px; padding: 3px; text-align: center; vertical-align: middle !important; }
-    .logo-img { width: 65px; height: auto; object-fit: contain; display: block; margin: auto; }
-    .logo-placeholder { width: 65px; height: 45px; border: 1px dashed #aaa; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #999; }
+    /* Encabezado */
+    .header-table td { height: auto; min-height: 50px; }
+    .title { text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 2px; }
+    .sub-title { text-align: center; font-size: 9px; font-weight: bold; margin-bottom: 2px; }
 
-    /* INFO EMPRESA */
-    .td-info { padding: 3px 5px; width: 28%; }
-    .info-racp { font-size: 8px; font-weight: 900; text-align: center; letter-spacing: 1px; margin-bottom: 2px; }
-    .info-line { font-size: 8.5px; font-weight: 700; line-height: 1.7; }
+    /* Celdas de información compactas */
+    .info-row td { height: 18px; font-size: 11px; }
+    .product-th { height: 18px; font-size: 9px; font-weight: bold; text-align: center; }
 
-    /* TABLA FECHA */
-    .td-fecha { width: 18%; padding: 3px; vertical-align: middle !important; }
-    .fecha-libre { font-size: 9px; font-weight: 700; text-align: center; }
-    .hora-line { display: none; }
-
-    /* CUADRO RTN/FACTURA/CAI */
-    .td-cai-box { padding: 0; width: 30%; }
-    .cai-table { width: 100%; border-collapse: collapse; }
-    .cai-table td { border: 1px solid #000; padding: 2px 4px; font-size: 7px; }
-    .cai-label { width: 42%; font-weight: 700; background: #f1f5f9; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .cai-value { }
-    .rtn-value { font-weight: 600; }
-    .factura-badge { font-weight: 900; font-size: 9px; text-align: center; letter-spacing: 1px; }
-    .cai-num { font-weight: 700; font-size: 7px; word-break: break-all; }
-    .cai-row-grande td { padding: 3px 4px; }
-    .num-factura-box {
-      background: #fff;
-      color: #000;
-      text-align: center;
-      padding: 2px 3px;
-    }
-    .num-cai-line {
-      font-size: 6.5px;
-      font-weight: 700;
-      word-break: break-all;
-      color: #000;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    .num-no-line {
-      font-size: 11px;
-      font-weight: 900;
-      letter-spacing: 1px;
-      margin-top: 1px;
-    }
-
-    /* ─── Tabla cliente ─── */
-    .cliente-table { width: 100%; border-collapse: collapse; border: none; margin-bottom: 3px; }
-    .cliente-table td { border: none; padding: 1px 5px; font-size: 8px; }
-    .cliente-nombre-cell { font-size: 8.5px; }
-    .cliente-dir-cell { width: 60%; }
-    .cliente-rtn-cell { width: 40%; }
-    .cl-label { font-weight: 700; }
-    .cl-value { }
-
-    /* ─── Tabla de productos ─── */
-    .tabla-productos { width: 100%; border-collapse: collapse; margin-bottom: 3px; }
-    .tabla-productos thead tr { background: #fff; color: #000; }
-    .tabla-productos th { padding: 3px 4px; font-size: 7.5px; font-weight: 700; text-align: left; border: 1px solid #000; }
-    .tabla-productos td { padding: 2px 4px; font-size: 8px; border: 1px solid #ccc; vertical-align: middle; }
-    .tabla-productos tbody tr:nth-child(even) td { background: #f8fafc; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .col-num { width: 11%; text-align: right !important; }
-
-    /* ─── Totales ─── */
-    .totales-table { width: 100%; border-collapse: collapse; margin-bottom: 2px; }
-    .totales-table td { padding: 1.5px 4px; font-size: 7.5px; border: 1px solid #ddd; }
-    .tot-lab { font-weight: 600; background: #f8fafc; width: 22%; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .tot-val { text-align: right; width: 14%; }
-    .tot-total { font-size: 9px; font-weight: 900; }
-
-    /* ─── Pagos ─── */
-    .pagos-table { width: 100%; border-collapse: collapse; margin-bottom: 2px; }
-    .pag-cell { padding: 2px 5px; font-size: 8px; border: 1px solid #000; text-align: center; }
-
-    /* ─── Total en letras ─── */
-    .letras-line { text-align: center; font-size: 7.5px; font-style: italic; margin: 2px 0; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; padding: 1.5px; }
-
-    /* ─── Pie fiscal ─── */
-    .cai-footer { display: flex; justify-content: space-between; font-size: 6.5px; color: #444; margin: 2px 0; border: 1px dashed #aaa; padding: 2px 4px; }
-
-    /* ─── Firmas ─── */
-    .firmas-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 4px; font-size: 7.5px; gap: 8px; }
-    .copia-label { font-size: 7px; font-weight: 700; color: #555; white-space: nowrap; }
-
-    /* ─── Gracias ─── */
-    .gracias { text-align: center; font-size: 7px; color: #555; margin-top: 2px; }
+    .grand-total { text-align: right; font-size: 11px; font-weight: bold; padding: 5px 6px; }
+    .letras-total { font-size: 14px; padding: 6px; }
 
     @media print {
       body { margin: 0; }
@@ -768,8 +799,9 @@ export async function generateFacturaHTML(
 </head>
 <body>
 <div class="page-wrap">
-  ${buildCopia("ORIGINAL: Cliente")}
-  ${params.singleCopy ? "" : `<hr class="separador"/>\n  ${buildCopia("COPIA: Emisor")}`}
+  ${buildFacturaCopia("ORIGINAL: Cliente")}
+  <hr class="separador"/>
+  ${buildFacturaCopia("COPIA: Emisor")}
 </div>
 </body>
 </html>`;

@@ -208,6 +208,13 @@ export async function generateCotizacionHTML(
   const empresaNombre = "SOLUCIONES TECNICAS CASTRO";
 
   // ── Filas de productos con nuevo formato (fuente grande) ────────────────────
+  // Formateo de moneda: miles ',' decimales '.'
+  const fmtMoney = (n: number) =>
+    Number(n || 0).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
   const buildProductosTablaGrande = () => {
     return carrito
       .map((i: any) => {
@@ -248,8 +255,8 @@ export async function generateCotizacionHTML(
         return `<tr>
           <td style="height:32px;vertical-align:middle;font-size:10px;font-weight:700;border:1px solid #9b9b9b;padding:6px 8px;">${skuStr}${desc}</td>
           <td style="height:32px;vertical-align:middle;font-size:10px;font-weight:700;border:1px solid #9b9b9b;padding:6px 8px;text-align:right;">${cant}</td>
-          <td style="height:32px;vertical-align:middle;font-size:10px;font-weight:700;border:1px solid #9b9b9b;padding:6px 8px;text-align:right;">L ${precioUnitario.toFixed(2)}</td>
-          <td style="height:32px;vertical-align:middle;font-size:10px;font-weight:700;border:1px solid #9b9b9b;padding:6px 8px;text-align:right;">L ${subtotalLinea.toFixed(2)}</td>
+          <td style="height:32px;vertical-align:middle;font-size:10px;font-weight:700;border:1px solid #9b9b9b;padding:6px 8px;text-align:right;">L ${fmtMoney(precioUnitario)}</td>
+          <td style="height:32px;vertical-align:middle;font-size:10px;font-weight:700;border:1px solid #9b9b9b;padding:6px 8px;text-align:right;">L ${fmtMoney(subtotalLinea)}</td>
         </tr>`;
       })
       .join("\n");
@@ -295,31 +302,48 @@ export async function generateCotizacionHTML(
 <body>
 <div class="sheet">
 
-  <h1>${empresaNombre}</h1>
+ 
 
-  <table class="top">
-    <colgroup>
-      <col style="width:23%"/>
-      <col style="width:27%"/>
-      <col style="width:12%"/>
-      <col style="width:38%"/>
-    </colgroup>
-    <tr>
-      <td style="vertical-align:middle;">${logoHtmlCot}</td>
-      <td>
-        <div style="font-size:9px;line-height:1.4;font-weight:700;"><b>Dirección:</b> ${direccion}</div>
-        <div style="font-size:9px;line-height:1.4;font-weight:700;"><b>Teléfono:</b> ${telefono}</div>
-        <div style="font-size:9px;line-height:1.4;font-weight:700;"><b>Email:</b> ${EM}</div>
-        <div style="font-size:9px;line-height:1.4;font-weight:700;"><b>RTN:</b> ${rtnEmp}</div>
-      </td>
-      <td></td>
-      <td style="vertical-align:top;position:relative;text-align:center;">
-        <div style="font-size:12px;font-weight:800;margin-top:2px;line-height:1.2;">COTIZACIÓN<br/>No. ${cotizacionNum || "—"}</div>
-        <div style="position:absolute;bottom:4px;left:8px;font-size:10px;font-weight:700;">Fecha: ${diaN}/${mesN}/${anioN}</div>
-      </td>
-    </tr>
-  </table>
+  <table class="header">
+  <colgroup>
+    <col style="width:22%">
+    <col style="width:56%">
+    <col style="width:22%">
+  </colgroup>
 
+  <tr>
+    <!-- LOGO -->
+    <td style="vertical-align:middle; text-align:center;">
+      ${logoHtmlCot}
+    </td>
+
+    <!-- DATOS EMPRESA -->
+    <td style="font-weight:900; font-size:12px; line-height:1.6;">
+      <div style="font-size:18px; font-weight:900; text-align:center; margin-bottom:4px;">
+        ${empresaNombre}
+      </div>
+
+      <div><b>Dirección:</b> ${direccion}</div>
+      <div><b>Teléfono:</b> ${telefono}</div>
+      <div><b>Email:</b> ${EM}</div>
+      <div><b>RTN:</b> ${rtnEmp}</div>
+    </td>
+
+    <!-- COTIZACION -->
+    <td style="vertical-align:top; position:relative; text-align:center; font-weight:900;">
+
+      <div style="font-size:15px; font-weight:900; margin-top:2px; line-height:1.2;">
+        COTIZACIÓN<br>
+        No. ${cotizacionNum || "—"}
+      </div>
+
+      <div style="position:absolute; bottom:4px; left:8px; font-size:12px; font-weight:900;">
+        Fecha: ${diaN}/${mesN}/${anioN}
+      </div>
+
+    </td>
+  </tr>
+</table>
   <table>
     <tr><td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>Cliente:</b> ${cliente}</td></tr>
     <tr><td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>RTN Cliente:</b> ${identidad}</td></tr>
@@ -351,24 +375,24 @@ export async function generateCotizacionHTML(
     </colgroup>
     <tr>
       <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>Descuento:</b></td>
-      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${DSC_calc.toFixed(2)}</td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${fmtMoney(DSC_calc)}</td>
       <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>Sub Total Gravado:</b></td>
-      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${Number(Gravado).toFixed(2)}</td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${fmtMoney(Gravado)}</td>
     </tr>
     <tr>
       <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>Sub Total Exento:</b></td>
-      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${Number(Exento).toFixed(2)}</td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${fmtMoney(Exento)}</td>
       <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>Sub Total Exonerado:</b></td>
-      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${Number(exonerado).toFixed(2)}</td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${fmtMoney(exonerado)}</td>
     </tr>
     <tr>
       <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>ISV 15%:</b></td>
-      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${Number(impuesto).toFixed(2)}</td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${fmtMoney(impuesto)}</td>
       <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>ISV 18%:</b></td>
-      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${Number(ISV18).toFixed(2)}</td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${fmtMoney(ISV18)}</td>
     </tr>
     <tr>
-      <td colspan="4" class="grand-total">TOTAL COTIZACIÓN: L ${ft.toFixed(2)}</td>
+      <td colspan="4" class="grand-total">TOTAL COTIZACIÓN: L ${fmtMoney(ft)}</td>
     </tr>
   </table>
 

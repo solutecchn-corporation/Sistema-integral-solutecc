@@ -24,9 +24,11 @@ type Props = {
   onOpenPayment: () => void
   paymentDone: boolean
   submitClienteNormal: () => Promise<void>
+  clienteDireccion: string
+  onDireccionChange: (v: string) => void
 }
 
-export default function ClienteNormalModal({ open, onClose, clienteTipo, clienteRTN, clienteNombre, clienteTelefono, clienteCorreo, clienteExonerado, clienteSearchOpen, setClienteSearchOpen, onRTNChange, onNombreChange, onTelefonoChange, onCorreoChange, onExoneradoChange, onCreateCliente, onCancel, onOpenCreateCliente, onOpenPayment, paymentDone, submitClienteNormal }: Props) {
+export default function ClienteNormalModal({ open, onClose, clienteTipo, clienteRTN, clienteNombre, clienteTelefono, clienteCorreo, clienteExonerado, clienteSearchOpen, setClienteSearchOpen, onRTNChange, onNombreChange, onTelefonoChange, onCorreoChange, onExoneradoChange, onCreateCliente, onCancel, onOpenCreateCliente, onOpenPayment, paymentDone, submitClienteNormal, clienteDireccion, onDireccionChange }: Props) {
   if (!open) return null
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
@@ -39,6 +41,10 @@ export default function ClienteNormalModal({ open, onClose, clienteTipo, cliente
 
         <p style={{ color: '#475569', marginTop: 6 }}>{clienteTipo === 'juridico' ? 'Ingrese número de identificación (RTN) y razón social del cliente jurídico. Estos datos se incluirán en la factura.' : 'Ingrese número de identificación (RTN) y nombre completo del cliente. Estos datos se incluirán en la factura.'}</p>
 
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+          <label style={{ fontSize: 13, color: '#334155' }}>Dirección del cliente (opcional)</label>
+          <input value={clienteDireccion} onChange={e => onDireccionChange(e.target.value)} placeholder="Dirección del cliente" style={{ padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <label style={{ fontSize: 13, color: '#334155' }}>RTN o Identificación</label>

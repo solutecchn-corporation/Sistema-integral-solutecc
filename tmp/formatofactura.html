@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Factura ${facturaNum || ""}</title>
+  <style>
+    /* Tamaño carta vertical, márgenes ajustados */
+    @page { size: 8.5in 11in; margin: 0.3in; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 10px; color: #000; background: #fff; }
+    
+    /* Contenedor principal restringido a la mitad superior de la página */
+    .sheet { width: 100%; max-height: 5.2in; overflow: hidden; }
+
+    /* Estilos generales de tabla */
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 3px; }
+    td, th { border: 1px solid #ccc; padding: 3px 4px; vertical-align: middle; font-size: 9px; }
+
+    /* Utilidades de texto */
+    .bold { font-weight: bold; }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+
+    /* Encabezado */
+    .header-table td { height: auto; min-height: 50px; }
+    .title { text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 2px; }
+    .sub-title { text-align: center; font-size: 9px; font-weight: bold; margin-bottom: 2px; }
+    
+    /* Celdas de información compactas */
+    .info-row td { height: 18px; font-size: 11px; }
+    .product-th { height: 18px; font-size: 9px; font-weight: bold; text-align: center; }
+    
+    .grand-total { text-align: right; font-size: 11px; font-weight: bold; padding: 5px 6px; }
+    .letras-total { font-size: 14px; padding: 6px; }
+
+    @media print { body { margin: 0; } }
+  </style>
+</head>
+<body>
+<div class="sheet">
+
+  <table class="header-table">
+    <colgroup>
+      <col style="width:25%"/>
+      <col style="width:45%"/>
+      <col style="width:30%"/>
+    </colgroup>
+    <tr>
+      <td class="text-center">
+        ${logoHtmlFactura} </td>
+      <td style="vertical-align:top; padding-top: 5px;">
+        <div class="title">${empresaNombre}</div>
+        <div class="sub-title">R.A.C.P</div>
+        <div style="font-size:8px;line-height:1.3;">
+          <span class="bold">R.T.N:</span> ${rtnEmp}<br>
+          <span class="bold">Dirección:</span> ${direccion}<br>
+          <span class="bold">Teléfono:</span> ${telefono}<br>
+          <span class="bold">Email:</span> ${EM}
+        </div>
+      </td>
+      <td class="text-center" style="vertical-align:middle;">
+        <div class="bold" style="font-size:11px;">Factura No. ${facturaNum}</div>
+        <div style="font-size:10px;margin-top:8px;" class="bold">Fecha: ${diaN}/${mesN}/${anioN}</div>
+      </td>
+    </tr>
+  </table>
+
+  <table>
+    <tr class="info-row"><td><span class="bold" style="font-size: 12px;">Cliente: ${cliente}</span></td></tr>
+    <tr class="info-row"><td><span class="bold" style="font-size: 12px;">RTN : ${rtnCliente}</span></td></tr>
+    <tr class="info-row"><td><span class="bold" style="font-size: 12px;">Dirección: ${direccionCliente || "—"}</span></td></tr>
+  </table>
+
+  <table>
+    <colgroup>
+      <col style="width:55%"/>
+      <col style="width:15%"/>
+      <col style="width:15%"/>
+      <col style="width:15%"/>
+    </colgroup>
+    <tr>
+      <th class="product-th">Descripción</th>
+      <th class="product-th">Cantidad</th>
+      <th class="product-th">Precio Unit.</th>
+      <th class="product-th">Total</th>
+    </tr>
+    ${tablaProductos} 
+  </table>
+
+  <table>
+    <colgroup>
+      <col style="width:30%"/>
+      <col style="width:20%"/>
+      <col style="width:30%"/>
+      <col style="width:20%"/>
+    </colgroup>
+    <tr>
+      <td class="bold">Descuento:</td>
+      <td class="bold">L ${Number(descuento).toFixed(2)}</td>
+      <td class="bold">Sub Total Gravado:</td>
+      <td class="bold">L ${Number(Gravado).toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td class="bold">Sub Total Exento:</td>
+      <td class="bold">L ${Number(Exento).toFixed(2)}</td>
+      <td class="bold">Sub Total Exonerado:</td>
+      <td class="bold">L ${Number(exonerado).toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td class="bold">ISV 15%:</td>
+      <td class="bold">L ${Number(impuesto).toFixed(2)}</td>
+      <td class="bold">ISV 18%:</td>
+      <td class="bold">L ${Number(ISV18).toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td colspan="4" class="grand-total">TOTAL FACTURA: L ${ft.toFixed(2)}</td>
+    </tr>
+  </table>
+
+  <table>
+     <colgroup>
+      <col style="width:25%"/>
+      <col style="width:25%"/>
+      <col style="width:25%"/>
+      <col style="width:25%"/>
+    </colgroup>
+    <tr>
+      <td class="text-center bold">Efectivo: L ${Number(efectivo).toFixed(2)}</td>
+      <td class="text-center bold">Tarjeta: L ${Number(tarjeta).toFixed(2)}</td>
+      <td class="text-center bold">Transferencia: L ${Number(transferencia).toFixed(2)}</td>
+      <td class="text-center bold">Cambio: L ${Number(cambio).toFixed(2)}</td>
+    </tr>
+  </table>
+
+  <table>
+    <tr>
+      <td class="text-center bold letras-total">*** ${totalEnLetras} ***</td>
+    </tr>
+  </table>
+
+  <table>
+    <tr class="info-row"><td><span class="bold" style="font-size:12px;">CAI: ${cai}</span></td></tr>
+    <tr class="info-row"><td><span class="bold" style="font-size:12px;">Rango autorizado: ${rangoAutorizado}</span></td></tr>
+    <tr class="info-row"><td><span class="bold" style="font-size:12px;">Fecha límite de emisión: ${fechaLimite}</span></td></tr>
+  </table>
+
+  <table style="border: none;">
+    <tr>
+      <td style="border: none; text-align: center; padding-top: 6px;">
+        <div class="bold" style="font-size: 12px;">¡Gracias por su compra!</div>
+        <div class="bold" style="font-size: 13px; margin-top: 2px;">LA FACTURA ES BENEFICIO DE TODOS, EXÍJALA</div>
+      </td>
+    </tr>
+  </table>
+
+</div>
+</body>
+</html>
