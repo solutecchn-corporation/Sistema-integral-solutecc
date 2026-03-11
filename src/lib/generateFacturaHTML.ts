@@ -442,6 +442,178 @@ export async function generateFacturaHTML(
 
 </div>`;
 
+  // ── Cotización: formato especial (sin datos fiscales, sin pagos) ─────────────
+  if (tipo === "cotizacion") {
+    const cotizacionItems = carrito
+      .map((i: any) => {
+        const desc = String(
+          (i.producto && (i.producto.nombre || i.producto.descripcion)) ||
+            i.descripcion ||
+            i.nombre ||
+            "",
+        );
+        const cant = Number(i.cantidad || 0);
+        const precioBrutoUnit = Number(
+          (i.producto && (i.producto.precio ?? i.producto.precio_unitario)) ??
+            i.precio_unitario ??
+            i.precio ??
+            0,
+        );
+        const exento =
+          Boolean(i.producto && i.producto.exento) || Boolean(i.exento);
+        const aplica18 =
+          Boolean(i.producto && i.producto.aplica_impuesto_18) ||
+          Boolean(i.aplica_impuesto_18);
+        const aplicaTur =
+          Boolean(i.producto && i.producto.aplica_impuesto_turistico) ||
+          Boolean(i.aplica_impuesto_turistico);
+        const mainRate = aplica18
+          ? (params.tax18Rate ?? params.tax18 ?? 0)
+          : (params.taxRate ?? params.tax ?? 0);
+        const turRate = aplicaTur
+          ? (params.taxTouristRate ?? params.taxTourist ?? 0)
+          : 0;
+        const combined = (Number(mainRate) || 0) + (Number(turRate) || 0);
+        let precioUnitario = precioBrutoUnit;
+        if (!exento && combined > 0)
+          precioUnitario = precioBrutoUnit / (1 + combined);
+        const subtotalLinea = precioUnitario * cant;
+        const sku = (i.producto && i.producto.sku) || i.sku || "";
+        return `<tr>
+          <td style="height:52px;vertical-align:middle;font-size:16px;font-weight:700;border:1px solid #9b9b9b;padding:14px 12px;">${sku ? sku + " – " : ""}${desc}</td>
+          <td style="height:52px;vertical-align:middle;font-size:16px;font-weight:700;border:1px solid #9b9b9b;padding:14px 12px;text-align:right;">${cant}</td>
+          <td style="height:52px;vertical-align:middle;font-size:16px;font-weight:700;border:1px solid #9b9b9b;padding:14px 12px;text-align:right;">L ${precioUnitario.toFixed(2)}</td>
+          <td style="height:52px;vertical-align:middle;font-size:16px;font-weight:700;border:1px solid #9b9b9b;padding:14px 12px;text-align:right;">L ${subtotalLinea.toFixed(2)}</td>
+        </tr>`;
+      })
+      .join("\n");
+
+    const logoHtmlCot = logoSrc
+      ? `<img src="${logoSrc}" alt="Logo" style="max-width:100%;max-height:110px;object-fit:contain;display:block;margin:auto;" />`
+      : `<div style="height:114px;background:#000;display:flex;align-items:center;justify-content:center;color:#46b6ff;font-size:28px;font-weight:700;letter-spacing:1px;text-align:center;">
+           <div>${comercio}<br/><small style="font-size:12px;color:#cfcfcf;letter-spacing:0;">${direccion}</small></div>
+         </div>`;
+
+    return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cotización ${factura}</title>
+  <style>
+    @page { size: letter portrait; margin: 0.35in 0.45in; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --border: #9b9b9b; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #111; background: #fff; }
+    .sheet { width: 100%; }
+    h1 { text-align: center; margin: 6px 0 10px; font-size: 28px; font-weight: 800; letter-spacing: 0.3px; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    td, th { border: 1px solid var(--border); padding: 14px 12px; vertical-align: top; font-size: 16px; }
+    .top td { height: 148px; }
+    .quote-title { text-align: center; font-size: 22px; font-weight: 800; margin-top: 8px; line-height: 1.25; }
+    .fecha { font-size: 17px; font-weight: 700; margin-top: 10px; }
+    .items th { text-align: center; font-size: 16px; font-weight: 800; vertical-align: middle; height: 46px; }
+    .grand-total { text-align: right; font-size: 18px; font-weight: 900; padding: 16px 14px; }
+    .footer td { text-align: center; padding: 14px 20px 12px; }
+    @media print { body { margin: 0; } }
+  </style>
+</head>
+<body>
+<div class="sheet">
+
+  <h1>${empresaNombre}</h1>
+
+  <table class="top">
+    <colgroup>
+      <col style="width:23%"/>
+      <col style="width:27%"/>
+      <col style="width:12%"/>
+      <col style="width:38%"/>
+    </colgroup>
+    <tr>
+      <td style="vertical-align:middle;">${logoHtmlCot}</td>
+      <td>
+        <div style="font-size:16px;line-height:1.8;"><b>Dirección:</b> ${direccion}</div>
+        <div style="font-size:16px;line-height:1.8;"><b>Teléfono:</b> ${telefono}</div>
+        <div style="font-size:16px;line-height:1.8;"><b>Email:</b> ${EM}</div>
+        <div style="font-size:16px;line-height:1.8;"><b>RTN:</b> ${rtnEmp}</div>
+      </td>
+      <td></td>
+      <td style="position:relative;vertical-align:top;">
+        <div class="quote-title">COTIZACIÓN<br/>No. ${factura}</div>
+        <div class="fecha">Fecha: ${diaN}/${mesN}/${anioN}</div>
+      </td>
+    </tr>
+  </table>
+
+  <table style="margin-top:8px;">
+    <tr><td style="height:48px;vertical-align:middle;font-size:17px;font-weight:700;"><b>Cliente:</b> ${cliente}</td></tr>
+    <tr><td style="height:48px;vertical-align:middle;font-size:17px;font-weight:700;"><b>RTN Cliente:</b> ${identidad}</td></tr>
+    <tr><td style="height:48px;vertical-align:middle;font-size:17px;font-weight:700;"><b>Dirección:</b> ${direccionCliente || "—"}</td></tr>
+  </table>
+
+  <table class="items" style="margin-top:8px;">
+    <colgroup>
+      <col style="width:62%"/>
+      <col style="width:12%"/>
+      <col style="width:12%"/>
+      <col style="width:14%"/>
+    </colgroup>
+    <tr>
+      <th>Descripción</th>
+      <th>Cant.</th>
+      <th>Precio Unit.</th>
+      <th>Total</th>
+    </tr>
+    ${cotizacionItems}
+  </table>
+
+  <table style="margin-top:8px;">
+    <colgroup>
+      <col style="width:30%"/>
+      <col style="width:20%"/>
+      <col style="width:30%"/>
+      <col style="width:20%"/>
+    </colgroup>
+    <tr>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;"><b>Descuento:</b></td>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${DSC.toFixed(2)}</td>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;"><b>Sub Total Gravado:</b></td>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${Number(Gravado).toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;"><b>Sub Total Exento:</b></td>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${Number(Exento).toFixed(2)}</td>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;"><b>Sub Total Exonerado:</b></td>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${Number(exonerado).toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;"><b>ISV 15%:</b></td>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${Number(impuesto).toFixed(2)}</td>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;"><b>ISV 18%:</b></td>
+      <td style="height:48px;vertical-align:middle;font-size:16px;font-weight:700;text-align:right;">L ${Number(ISV18).toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td colspan="4" class="grand-total">TOTAL COTIZACIÓN: L ${ft.toFixed(2)}</td>
+    </tr>
+  </table>
+
+  <table style="margin-top:8px;">
+    <tr>
+      <td style="text-align:center;padding:14px 20px 12px;">
+        <div style="font-size:18px;font-weight:900;">Precios válidos por 20 días</div>
+        <div style="font-size:18px;font-weight:900;margin-top:4px;">ESTO NO ES UNA FACTURA</div>
+        <div style="margin-top:6px;font-size:15px;font-weight:700;color:#4a4a4a;">¡Gracias por su preferencia! — Cotización sujeta a cambios sin previo aviso</div>
+      </td>
+    </tr>
+  </table>
+
+</div>
+</body>
+</html>`;
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const htmlOutput = `<!DOCTYPE html>
 <html lang="es">
 <head>

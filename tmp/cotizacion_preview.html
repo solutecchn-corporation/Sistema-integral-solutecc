@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Formato de Cotización</title>
+    <style>
+      :root {
+        --border: #9b9b9b;
+        --text: #111;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 24px;
+        font-family: Arial, Helvetica, sans-serif;
+        color: var(--text);
+        background: #f3f3f3;
+      }
+
+      .sheet {
+        width: 1100px;
+        margin: 0 auto;
+        background: #fff;
+        padding: 8px;
+      }
+
+      h1 {
+        text-align: center;
+        margin: 6px 0 10px;
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+
+      td,
+      th {
+        border: 1px solid var(--border);
+        padding: 14px 12px;
+        vertical-align: top;
+        font-size: 16px;
+      }
+
+      .top td {
+        height: 148px;
+      }
+
+      .logo-cell {
+        width: 23%;
+      }
+      .company-cell {
+        width: 27%;
+      }
+      .blank-cell {
+        width: 12%;
+      }
+      .quote-cell {
+        width: 38%;
+        position: relative;
+      }
+
+      .logo-box {
+        height: 114px;
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #46b6ff;
+        font-size: 34px;
+        font-weight: 700;
+        letter-spacing: 1px;
+      }
+
+      .logo-box small {
+        display: block;
+        color: #cfcfcf;
+        font-size: 12px;
+        margin-top: 6px;
+        letter-spacing: 0;
+        text-align: center;
+      }
+
+      .company-cell b,
+      .quote-cell b,
+      .client-block b,
+      .totals b,
+      .footer b {
+        font-weight: 800;
+      }
+
+      .quote-title {
+        text-align: center;
+        font-size: 22px;
+        font-weight: 800;
+        margin-top: 8px;
+        line-height: 1.25;
+      }
+
+      .fecha {
+        position: absolute;
+        left: 16px;
+        bottom: 2px;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .client-block td {
+        height: 48px;
+        vertical-align: middle;
+        font-size: 17px;
+        font-weight: 700;
+      }
+
+      .items th {
+        text-align: center;
+        font-size: 16px;
+        font-weight: 800;
+        vertical-align: middle;
+        height: 46px;
+      }
+
+      .items td {
+        height: 52px;
+        vertical-align: middle;
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .desc-col {
+        width: 62%;
+      }
+      .qty-col {
+        width: 12%;
+        text-align: right;
+      }
+      .unit-col {
+        width: 12%;
+        text-align: right;
+      }
+      .total-col {
+        width: 14%;
+        text-align: right;
+      }
+
+      .money,
+      .right {
+        text-align: right;
+      }
+
+      .totals td {
+        height: 48px;
+        vertical-align: middle;
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .totals .label {
+        width: 30%;
+      }
+      .totals .value {
+        width: 20%;
+        text-align: right;
+      }
+      .totals .label2 {
+        width: 30%;
+      }
+      .totals .value2 {
+        width: 20%;
+        text-align: right;
+      }
+
+      .grand-total {
+        text-align: right;
+        font-size: 18px;
+        font-weight: 900;
+        padding: 16px 14px;
+      }
+
+      .footer td {
+        text-align: center;
+        padding: 12px 20px 10px;
+      }
+
+      .footer .line1,
+      .footer .line2 {
+        font-size: 18px;
+        font-weight: 900;
+      }
+
+      .footer .line3 {
+        margin-top: 4px;
+        font-size: 15px;
+        font-weight: 700;
+        color: #4a4a4a;
+      }
+
+      [contenteditable="true"]:focus {
+        outline: 2px dashed #4a90e2;
+        outline-offset: 2px;
+        background: #fffdf2;
+      }
+
+      .muted-link {
+        color: #2c67b1;
+        text-decoration: underline;
+      }
+
+      @media print {
+        body {
+          background: #fff;
+          padding: 0;
+        }
+        .sheet {
+          width: 100%;
+          padding: 0;
+        }
+        [contenteditable="true"]:focus {
+          outline: none;
+          background: transparent;
+        }
+      }
+
+      @media (max-width: 1140px) {
+        body {
+          padding: 8px;
+        }
+        .sheet {
+          width: 100%;
+          overflow-x: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sheet">
+      <h1 contenteditable="true">SOLUCIONES TECNICAS CASTRO</h1>
+
+      <table class="top">
+        <tr>
+          <td class="logo-cell">
+            <div class="logo-box" contenteditable="true">
+              <div>
+                SOLUTEC
+                <small>Soluciones Técnicas Castro +</small>
+              </div>
+            </div>
+          </td>
+          <td class="company-cell" contenteditable="true">
+            <b>Dirección:</b> COXEN HOLE, ENTRADA<br />
+            A MANTRAPP FRENTE A ESCUELA<br />
+            ESBIR, ROATAN, ISLAS DE LA<br />
+            BAHÍA<br />
+            <b>Teléfono:</b> 9843-6513<br />
+            <b>Email:</b> <span class="muted-link">solutecc2@gmail.com</span
+            ><br />
+            <b>RTN:</b> 05011985123011
+          </td>
+          <td class="blank-cell"></td>
+          <td class="quote-cell">
+            <div class="quote-title" contenteditable="true">
+              COTIZACIÓN<br />
+              No. 303654
+            </div>
+            <div class="fecha" contenteditable="true">Fecha:</div>
+          </td>
+        </tr>
+      </table>
+
+      <table class="client-block" style="margin-top: 8px">
+        <tr>
+          <td contenteditable="true"><b>Cliente:</b> Consumidor Final</td>
+        </tr>
+        <tr>
+          <td contenteditable="true"><b>RTN Cliente:</b> 99999999999999</td>
+        </tr>
+        <tr>
+          <td contenteditable="true"><b>Dirección:</b> —</td>
+        </tr>
+      </table>
+
+      <table class="items" style="margin-top: 8px">
+        <colgroup>
+          <col class="desc-col" />
+          <col class="qty-col" />
+          <col class="unit-col" />
+          <col class="total-col" />
+        </colgroup>
+        <tr>
+          <th>Descripción</th>
+          <th>Cant.</th>
+          <th>Precio Unit.</th>
+          <th>Total</th>
+        </tr>
+        <tr>
+          <td contenteditable="true">cambio de balineras</td>
+          <td class="right" contenteditable="true">1</td>
+          <td class="money" contenteditable="true">L 5217.39</td>
+          <td class="money" contenteditable="true">L 5217.39</td>
+        </tr>
+      </table>
+
+      <table class="totals" style="margin-top: 6px">
+        <tr>
+          <td class="label" contenteditable="true">Descuento:</td>
+          <td class="value" contenteditable="true">L 0.00</td>
+          <td class="label2" contenteditable="true">Sub Total Gravado:</td>
+          <td class="value2" contenteditable="true">L 5217.39</td>
+        </tr>
+        <tr>
+          <td class="label" contenteditable="true">Sub Total Exento:</td>
+          <td class="value" contenteditable="true">L 0.00</td>
+          <td class="label2" contenteditable="true">Sub Total Exonerado:</td>
+          <td class="value2" contenteditable="true">L 0.00</td>
+        </tr>
+        <tr>
+          <td class="label" contenteditable="true">ISV 15%:</td>
+          <td class="value" contenteditable="true">L 782.61</td>
+          <td class="label2" contenteditable="true">ISV 18%:</td>
+          <td class="value2" contenteditable="true">L 0.00</td>
+        </tr>
+        <tr>
+          <td colspan="4" class="grand-total" contenteditable="true">
+            TOTAL COTIZACIÓN: L 6000.00
+          </td>
+        </tr>
+      </table>
+
+      <table class="footer" style="margin-top: 6px">
+        <tr>
+          <td>
+            <div class="line1" contenteditable="true">
+              Precios válidos por 20 días
+            </div>
+            <div class="line2" contenteditable="true">
+              ESTO NO ES UNA FACTURA
+            </div>
+            <div class="line3" contenteditable="true">
+              ¡Gracias por su preferencia! — Cotización sujeta a cambios sin
+              previo aviso
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </body>
+</html>

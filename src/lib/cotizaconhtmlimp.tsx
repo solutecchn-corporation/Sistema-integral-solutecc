@@ -207,195 +207,182 @@ export async function generateCotizacionHTML(
   const direccionCliente = opts.direccionCliente || "";
   const empresaNombre = "SOLUCIONES TECNICAS CASTRO";
 
+  // ── Filas de productos con nuevo formato (fuente grande) ────────────────────
+  const buildProductosTablaGrande = () => {
+    return carrito
+      .map((i: any) => {
+        const desc = String(
+          (i.producto && (i.producto.nombre || i.producto.descripcion)) ||
+            i.descripcion ||
+            i.nombre ||
+            "",
+        );
+        const cant = Number(i.cantidad || 0);
+        const precioBrutoUnit = Number(
+          (i.producto && (i.producto.precio ?? i.producto.precio_unitario)) ??
+            i.precio_unitario ??
+            i.precio ??
+            0,
+        );
+        const exentoItem =
+          Boolean(i.producto && i.producto.exento) || Boolean(i.exento);
+        const aplica18 =
+          Boolean(i.producto && i.producto.aplica_impuesto_18) ||
+          Boolean(i.aplica_impuesto_18);
+        const aplicaTur =
+          Boolean(i.producto && i.producto.aplica_impuesto_turistico) ||
+          Boolean(i.aplica_impuesto_turistico);
+        const mainRate = aplica18
+          ? (params.tax18Rate ?? params.tax18 ?? 0)
+          : (params.taxRate ?? params.tax ?? 0);
+        const turRate = aplicaTur
+          ? (params.taxTouristRate ?? params.taxTourist ?? 0)
+          : 0;
+        const combined = (Number(mainRate) || 0) + (Number(turRate) || 0);
+        let precioUnitario = precioBrutoUnit;
+        if (!exentoItem && combined > 0)
+          precioUnitario = precioBrutoUnit / (1 + combined);
+        const subtotalLinea = precioUnitario * cant;
+        const sku = (i.producto && i.producto.sku) || i.sku || "";
+        const skuStr = sku ? `${sku} – ` : "";
+        return `<tr>
+          <td style="height:32px;vertical-align:middle;font-size:10px;font-weight:700;border:1px solid #9b9b9b;padding:6px 8px;">${skuStr}${desc}</td>
+          <td style="height:32px;vertical-align:middle;font-size:10px;font-weight:700;border:1px solid #9b9b9b;padding:6px 8px;text-align:right;">${cant}</td>
+          <td style="height:32px;vertical-align:middle;font-size:10px;font-weight:700;border:1px solid #9b9b9b;padding:6px 8px;text-align:right;">L ${precioUnitario.toFixed(2)}</td>
+          <td style="height:32px;vertical-align:middle;font-size:10px;font-weight:700;border:1px solid #9b9b9b;padding:6px 8px;text-align:right;">L ${subtotalLinea.toFixed(2)}</td>
+        </tr>`;
+      })
+      .join("\n");
+  };
+
+  const tablaGrande = buildProductosTablaGrande();
+
+  const logoHtmlCot = logoSrc
+    ? `<img src="${logoSrc}" alt="Logo" style="max-width:100%;max-height:110px;object-fit:contain;display:block;margin:auto;"/>`
+    : `<div style="min-height:80px;background:#000;display:flex;align-items:center;justify-content:center;color:#46b6ff;font-size:16px;font-weight:700;letter-spacing:1px;text-align:center;">
+         <div>${empresaNombre}<br/><small style="font-size:8px;color:#cfcfcf;letter-spacing:0;">${direccion}</small></div>
+       </div>`;
+
   const htmlOutput = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Cotización ${cotizacionNum || ""}</title>
   <style>
-    @page { size: letter portrait; margin: 0.3in 0.4in; }
+    /* Tamaño carta vertical, con márgenes pequeños */
+    @page { size: 8.5in 11in; margin: 0.3in; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, Helvetica, sans-serif; font-size: 9px; color: #000; background: #fff; }
-
-    .empresa-nombre {
-      font-size: 16px;
-      font-weight: 900;
-      text-align: center;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      border-bottom: 2px solid #000;
-      padding-bottom: 4px;
-      margin-bottom: 5px;
-    }
-
-    .header-table {
-      width: 100%;
-      border-collapse: collapse;
-      border: 1px solid #000;
-      margin-bottom: 4px;
-    }
-    .header-table td { vertical-align: top; border: 1px solid #000; }
-
-    .td-logo { width: 80px; padding: 4px; text-align: center; vertical-align: middle; }
-    .logo-img { width: 70px; height: auto; object-fit: contain; display: block; margin: auto; }
-    .logo-placeholder { width: 70px; height: 50px; border: 1px dashed #aaa; display: table-cell; text-align: center; vertical-align: middle; font-size: 8px; color: #999; }
-
-    .td-info { padding: 4px 6px; width: 30%; }
-    .info-line { font-size: 8.5px; font-weight: 700; line-height: 1.8; }
-
-    .td-fecha { width: 18%; padding: 3px; vertical-align: top; }
-    .fecha-table { width: 100%; border-collapse: collapse; }
-    .fecha-table th { background: #fff; color: #000; text-align: center; font-size: 7.5px; font-weight: 700; padding: 2px 1px; border: 1px solid #000; }
-    .fecha-table td { text-align: center; font-size: 9px; font-weight: 700; padding: 2px 1px; border: 1px solid #000; }
-    .hora-line { font-size: 7px; margin-top: 2px; text-align: center; color: #444; }
-
-    .td-cai-box { padding: 0; width: 28%; }
-    .cai-table { width: 100%; border-collapse: collapse; }
-    .cai-table td { border: 1px solid #000; padding: 3px 4px; font-size: 8px; }
-    .cai-label { width: 42%; font-weight: 700; background: #f1f5f9; }
-    .rtn-value { font-weight: 600; }
-    .cotiz-badge { font-weight: 900; font-size: 10px; text-align: center; letter-spacing: 1px; }
-    .num-cotiz-box { background: #fff; color: #000; text-align: center; font-size: 12px; font-weight: 900; padding: 3px; letter-spacing: 1px; border-top: 1px solid #000; }
-
-    .cliente-table { width: 100%; border-collapse: collapse; border: 1px solid #000; margin-bottom: 4px; }
-    .cliente-table td { border: 1px solid #000; padding: 3px 6px; font-size: 9px; }
-
-    .tabla-productos { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
-    .tabla-productos thead tr { background: #fff; color: #000; }
-    .tabla-productos th { padding: 4px 5px; font-size: 8.5px; font-weight: 700; text-align: left; border: 1px solid #000; }
-    .tabla-productos td { padding: 3px 5px; font-size: 9px; border: 1px solid #ccc; vertical-align: middle; }
-    .tabla-productos tbody tr:nth-child(even) td { background: #f8fafc; }
-    .col-num { width: 11%; text-align: right !important; }
-
-    .totales-table { width: 100%; border-collapse: collapse; margin-bottom: 3px; }
-    .totales-table td { padding: 2px 5px; font-size: 8px; border: 1px solid #ddd; }
-    .tot-lab { font-weight: 600; background: #f8fafc; width: 22%; }
-    .tot-val { text-align: right; width: 14%; }
-    .tot-total { font-size: 10px; font-weight: 900; text-align: right; padding: 3px 5px; }
-
-    .letras-table { width: 100%; border-collapse: collapse; margin-bottom: 3px; }
-    .letras-cell { text-align: center; font-size: 8px; font-style: italic; border: 1px solid #ccc; padding: 2px; }
-
-    .footer-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-    .footer-table td { padding: 4px 6px; font-size: 8.5px; vertical-align: top; }
-    .firma-cell { border-top: 1px solid #000; width: 45%; }
-    .validez-cell { text-align: center; font-size: 9px; font-weight: 700; border: 2px solid #000; padding: 5px; background: #f8fafc; }
-    .gracias-cell { text-align: center; font-size: 8px; color: #444; padding-top: 6px; }
+    :root { --border: #9b9b9b; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 10px; color: #111; background: #fff; }
+    
+    /* Contenedor principal restringido a la mitad de la página (aprox 5 pulgadas para dejar margen) */
+    .sheet { width: 100%; max-height: 5.2in; overflow: hidden; }
+    
+    h1 { text-align: center; margin: 2px 0 4px; font-size: 16px; font-weight: 800; letter-spacing: 0.3px; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 3px; }
+    
+    /* Reducimos el padding para ahorrar espacio vertical */
+    td, th { border: 1px solid var(--border); padding: 3px 4px; vertical-align: top; font-size: 9px; }
+    
+    /* Altura automática o reducida para el encabezado */
+    .top td { height: auto; min-height: 50px; }
+    
+    .grand-total { text-align: right; font-size: 11px; font-weight: 900; padding: 5px 6px; }
+    @media print { body { margin: 0; } }
   </style>
 </head>
 <body>
+<div class="sheet">
 
-  <!-- Nombre empresa -->
-  <div class="empresa-nombre">${empresaNombre}</div>
+  <h1>${empresaNombre}</h1>
 
-  <!-- Encabezado: LOGO | INFO EMPRESA | FECHA | RTN/COTIZACIÓN -->
-  <table class="header-table" cellspacing="0" cellpadding="0">
+  <table class="top">
+    <colgroup>
+      <col style="width:23%"/>
+      <col style="width:27%"/>
+      <col style="width:12%"/>
+      <col style="width:38%"/>
+    </colgroup>
     <tr>
-      <td class="td-logo">
-        ${logoSrc ? `<img src="${logoSrc}" alt="Logo" class="logo-img" />` : '<div class="logo-placeholder">LOGO</div>'}
+      <td style="vertical-align:middle;">${logoHtmlCot}</td>
+      <td>
+        <div style="font-size:9px;line-height:1.4;font-weight:700;"><b>Dirección:</b> ${direccion}</div>
+        <div style="font-size:9px;line-height:1.4;font-weight:700;"><b>Teléfono:</b> ${telefono}</div>
+        <div style="font-size:9px;line-height:1.4;font-weight:700;"><b>Email:</b> ${EM}</div>
+        <div style="font-size:9px;line-height:1.4;font-weight:700;"><b>RTN:</b> ${rtnEmp}</div>
       </td>
-      <td class="td-info">
-        <div class="info-line"><b>Dirección:</b> ${direccion}</div>
-        <div class="info-line"><b>Teléfono:</b> ${telefono}</div>
-        <div class="info-line"><b>Email:</b> ${EM}</div>
-      </td>
-      <td class="td-fecha">
-        <table class="fecha-table" cellspacing="0" cellpadding="0">
-          <thead><tr><th>DÍA</th><th>MES</th><th>AÑO</th></tr></thead>
-          <tbody><tr><td>${diaN}</td><td>${mesN}</td><td>${anioN}</td></tr></tbody>
-        </table>
-        <div class="hora-line">Hora: ${horaStr}</div>
-      </td>
-      <td class="td-cai-box">
-        <table class="cai-table" cellspacing="0" cellpadding="0">
-          <tr>
-            <td class="cai-label">RTN Empresa:</td>
-            <td class="rtn-value">${rtnEmp || "&nbsp;"}</td>
-          </tr>
-          <tr>
-            <td class="cai-label">Tipo:</td>
-            <td class="cotiz-badge">COTIZACIÓN</td>
-          </tr>
-          <tr>
-            <td class="cai-label">No.:</td>
-            <td style="font-weight:700">${cotizacionNum || "&nbsp;"}</td>
-          </tr>
-        </table>
-        <div class="num-cotiz-box">No. ${cotizacionNum || "—"}</div>
+      <td></td>
+      <td style="vertical-align:top;position:relative;text-align:center;">
+        <div style="font-size:12px;font-weight:800;margin-top:2px;line-height:1.2;">COTIZACIÓN<br/>No. ${cotizacionNum || "—"}</div>
+        <div style="position:absolute;bottom:4px;left:8px;font-size:10px;font-weight:700;">Fecha: ${diaN}/${mesN}/${anioN}</div>
       </td>
     </tr>
   </table>
 
-  <!-- Datos del cliente -->
-  <table class="cliente-table" cellspacing="0" cellpadding="0">
+  <table>
+    <tr><td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>Cliente:</b> ${cliente}</td></tr>
+    <tr><td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>RTN Cliente:</b> ${identidad}</td></tr>
+    <tr><td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>Dirección:</b> ${direccionCliente || "—"}</td></tr>
+  </table>
+
+  <table>
+    <colgroup>
+      <col style="width:62%"/>
+      <col style="width:12%"/>
+      <col style="width:12%"/>
+      <col style="width:14%"/>
+    </colgroup>
     <tr>
-      <td colspan="2"><b>Cliente:</b>&nbsp;${cliente}</td>
+      <th style="text-align:center;font-size:10px;font-weight:800;vertical-align:middle;height:18px;">Descripción</th>
+      <th style="text-align:center;font-size:10px;font-weight:800;vertical-align:middle;height:18px;">Cant.</th>
+      <th style="text-align:center;font-size:10px;font-weight:800;vertical-align:middle;height:18px;">Precio Unit.</th>
+      <th style="text-align:center;font-size:10px;font-weight:800;vertical-align:middle;height:18px;">Total</th>
+    </tr>
+    ${tablaGrande}
+  </table>
+
+  <table>
+    <colgroup>
+      <col style="width:30%"/>
+      <col style="width:20%"/>
+      <col style="width:30%"/>
+      <col style="width:20%"/>
+    </colgroup>
+    <tr>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>Descuento:</b></td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${DSC_calc.toFixed(2)}</td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>Sub Total Gravado:</b></td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${Number(Gravado).toFixed(2)}</td>
     </tr>
     <tr>
-      <td colspan="2"><b>RTN Cliente:</b>&nbsp;${identidad}</td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>Sub Total Exento:</b></td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${Number(Exento).toFixed(2)}</td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>Sub Total Exonerado:</b></td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${Number(exonerado).toFixed(2)}</td>
     </tr>
     <tr>
-      <td colspan="2"><b>Dirección:</b>&nbsp;${direccionCliente || "—"}</td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>ISV 15%:</b></td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${Number(impuesto).toFixed(2)}</td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;"><b>ISV 18%:</b></td>
+      <td style="height:16px;vertical-align:middle;font-size:10px;font-weight:700;text-align:right;">L ${Number(ISV18).toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td colspan="4" class="grand-total">TOTAL COTIZACIÓN: L ${ft.toFixed(2)}</td>
     </tr>
   </table>
 
-  <!-- Tabla de productos -->
-  <table class="tabla-productos" cellspacing="0" cellpadding="0">
-    <thead>
-      <tr>
-        <th>Descripción</th>
-        <th class="col-num">Cant.</th>
-        <th class="col-num">Precio Unit.</th>
-        <th class="col-num">Total</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${tabla}
-    </tbody>
-  </table>
-
-  <!-- Totales -->
-  <table class="totales-table" cellspacing="0" cellpadding="0">
+  <table style="margin-top:2px;">
     <tr>
-      <td class="tot-lab">Descuento:</td><td class="tot-val">L ${DSC_calc.toFixed(2)}</td>
-      <td class="tot-lab">Sub Total Gravado:</td><td class="tot-val">L ${Number(Gravado).toFixed(2)}</td>
-    </tr>
-    <tr>
-      <td class="tot-lab">Sub Total Exento:</td><td class="tot-val">L ${Number(Exento).toFixed(2)}</td>
-      <td class="tot-lab">Sub Total Exonerado:</td><td class="tot-val">L ${Number(exonerado).toFixed(2)}</td>
-    </tr>
-    <tr>
-      <td class="tot-lab">ISV 15%:</td><td class="tot-val">L ${Number(impuesto).toFixed(2)}</td>
-      <td class="tot-lab">ISV 18%:</td><td class="tot-val">L ${Number(ISV18).toFixed(2)}</td>
-    </tr>
-    <tr>
-      <td class="tot-total" colspan="4"><b>TOTAL COTIZACIÓN: L ${ft.toFixed(2)}</b></td>
-    </tr>
-  </table>
-
-  <!-- Total en letras -->
-  <table class="letras-table" cellspacing="0" cellpadding="0">
-    <tr><td class="letras-cell">*** ${letras} Lempiras ***</td></tr>
-  </table>
-
-  <!-- Pie: firma, validez y mensaje -->
-  <table class="footer-table" cellspacing="0" cellpadding="0">
-    <tr>
-      <td style="width:38%; padding-top:18px; border-top:1px solid #000; font-size:8px;">Firma Cliente: ______________________</td>
-      <td style="width:4%;"></td>
-      <td style="width:24%; text-align:center; border:2px solid #000; padding:6px; font-size:9px; font-weight:700; background:#f8fafc;">
-      Precio válido<br/>por <b>20 días</b>
-      </td>
-      <td style="width:4%;"></td>
-      <td style="width:30%; padding-top:18px; border-top:1px solid #000; font-size:8px;">Firma Emisor: ______________________</td>
-    </tr>
-    <tr>
-      <td colspan="5" style="text-align:center; font-size:8px; color:#555; padding-top:6px;">
-        ¡Gracias por su preferencia! — Cotización sujeta a cambios sin previo aviso
+      <td style="text-align:center;padding:4px 6px;">
+        <div style="font-size:10px;font-weight:900;">Precios válidos por 20 días</div>
+        <div style="font-size:10px;font-weight:900;margin-top:2px;">ESTO NO ES UNA FACTURA</div>
+        <div style="margin-top:2px;font-size:8px;font-weight:700;color:#4a4a4a;">¡Gracias por su preferencia! — Cotización sujeta a cambios sin previo aviso</div>
       </td>
     </tr>
   </table>
 
+</div>
 </body>
 </html>`;
 

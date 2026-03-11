@@ -132,6 +132,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     cliente: string,
     rtn: string | null,
     cotizacionNumero?: string | null,
+    direccionCliente?: string,
   ) => {
     try {
       skipCotizacionConfirmRef.current = true;
@@ -141,6 +142,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         rtn,
         null,
         cotizacionNumero || cotizacionLastNumero,
+        direccionCliente,
       );
     } catch (e) {
       console.warn("Error printing cotizacion direct:", e);
@@ -419,6 +421,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     opts: {
       cliente?: string;
       rtn?: string | null;
+      direccion?: string;
       cliente_id?: number;
       cotizacion_id?: string | number;
     } = {},
@@ -461,6 +464,8 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         impuesto: impuestoVal,
         total: totalVal,
         estado: "pendiente",
+        // direccion_cliente guardada solo si la columna existe (ver migration)
+        ...(opts.direccion ? { direccion_cliente: opts.direccion } : {}),
       };
 
       // si estamos editando una cotización existente, actualizarla en lugar de insertar
@@ -475,14 +480,23 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           impuesto: payload.impuesto,
           total: payload.total,
           estado: payload.estado,
+          // direccion_cliente solo si la columna ya existe en DB
+          ...(opts.direccion ? { direccion_cliente: opts.direccion } : {}),
         };
         const { error: upErr } = await supabase
           .from("cotizaciones")
           .update(updatePayload)
           .eq("id", cotizacionId);
         if (upErr) {
-          console.warn("Error actualizando cotizacion:", upErr);
-          return null;
+          // Si falla por columna inexistente, reintentar sin direccion_cliente
+          if (upErr.code === "42703" || String(upErr.message).includes("direccion_cliente")) {
+            delete updatePayload.direccion_cliente;
+            const { error: upErr2 } = await supabase.from("cotizaciones").update(updatePayload).eq("id", cotizacionId);
+            if (upErr2) { console.warn("Error actualizando cotizacion:", upErr2); return null; }
+          } else {
+            console.warn("Error actualizando cotizacion:", upErr);
+            return null;
+          }
         }
         // try fetch numero_cotizacion after update
         try {
@@ -495,18 +509,37 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             numeroToReturn =
               (fetched as any).numero_cotizacion ||
               (fetched as any)["Número"] ||
-              null;
+              numeroCot;
             try {
               setCotizacionLastNumero(numeroToReturn);
             } catch (e) {}
+          } else {
+            numeroToReturn = numeroCot;
+            try { setCotizacionLastNumero(numeroCot); } catch (e) {}
           }
-        } catch (e) {}
+        } catch (e) {
+          numeroToReturn = numeroCot;
+          try { setCotizacionLastNumero(numeroCot); } catch (e) {}
+        }
       } else {
-        const { data: insData, error: insErr } = await supabase
+        let insData: any = null;
+        let insErr: any = null;
+        // Primer intento (con direccion_cliente si está presente)
+        ({ data: insData, error: insErr } = await supabase
           .from("cotizaciones")
           .insert([payload])
           .select("*")
-          .maybeSingle();
+          .maybeSingle() as any);
+        // Si falla por columna inexistente, reintentar sin direccion_cliente
+        if (insErr && (insErr.code === "42703" || String(insErr.message || "").includes("direccion_cliente"))) {
+          const payloadSinDir = { ...payload };
+          delete payloadSinDir.direccion_cliente;
+          ({ data: insData, error: insErr } = await supabase
+            .from("cotizaciones")
+            .insert([payloadSinDir])
+            .select("*")
+            .maybeSingle() as any);
+        }
         if (insErr) {
           console.warn("Error insertando cotizacion:", insErr);
           return null;
@@ -795,6 +828,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     rtn: string | null,
     paymentPayload: any,
     cotizacionNumero?: string | null,
+    direccionCliente?: string,
   ) => {
     let generator: any =
       printFormat === "cinta" ? generateFacturaHTMLCinta : generateFacturaHTML;
@@ -802,7 +836,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     // Obtener CAI fresco desde Supabase antes de generar el HTML
     const freshCaiData = await fetchCaiDataForCurrentUser();
     if (freshCaiData) optsForGenerator.caiInfo = freshCaiData;
-    if (printingMode === "cotizacion") {
+    // Activar modo cotización si printingMode lo dice O si se pasó un número de cotización explícito
+    const isCotizacion = printingMode === "cotizacion" || cotizacionNumero != null || direccionCliente != null;
+    if (isCotizacion) {
       generator = generateCotizacionHTML;
       // prefer explicit cotizacionNumero, fallback to last saved numero from state
       const numToUse = cotizacionNumero || cotizacionLastNumero || null;
@@ -810,6 +846,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       // also accept legacy field name
       if (optsForGenerator.cotizacion == null && cotizacionLastNumero)
         optsForGenerator["Número"] = cotizacionLastNumero;
+      // include direccion si nos lo pasaron
+      if (direccionCliente)
+        optsForGenerator.direccionCliente = direccionCliente;
     }
     const html = await generator(optsForGenerator, printingMode, {
       carrito,
@@ -939,7 +978,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           usuarioId: userId,
         });
         if (ventaResult?.facturaNum) {
-          try { optsForGenerator.__facturaNum = ventaResult.facturaNum; } catch(e) {}
+          try {
+            optsForGenerator.__facturaNum = ventaResult.facturaNum;
+          } catch (e) {}
         }
       } catch (e) {
         console.warn("Error preparando venta antes de imprimir:", e);
@@ -983,18 +1024,13 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         await handlePostPrint();
       }
       if (printingMode === "cotizacion") {
-        setCotizacionPendingClient({ cliente, rtn });
-        if (!skipCotizacionConfirmRef.current) {
-          setCotizacionConfirmOpen(true);
-        } else {
-          setCotizacionConfirmOpen(false);
-          setCotizacionPendingClient(null);
-        }
+        // cotización ya guardada automáticamente antes de imprimir, no se necesita confirmar
+        setCotizacionPendingClient(null);
       }
     };
 
     // Mostrar modal Imprimir / Enviar por Correo
-    const facturaNumParaModal = (optsForGenerator as any).__facturaNum || '';
+    const facturaNumParaModal = (optsForGenerator as any).__facturaNum || "";
     await openDeliveryChoice(
       html,
       htmlForEmail,
@@ -1896,7 +1932,11 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     // Obtener CAI fresco desde Supabase antes de generar el HTML
     const freshCaiDataCN = await fetchCaiDataForCurrentUser();
     const html = await generator(
-      { cliente: clienteNombre || "Cliente", rtn: clienteRTN || "", caiInfo: freshCaiDataCN || caiInfoState },
+      {
+        cliente: clienteNombre || "Cliente",
+        rtn: clienteRTN || "",
+        caiInfo: freshCaiDataCN || caiInfoState,
+      },
       printingMode,
       {
         carrito,
@@ -2045,7 +2085,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           usuarioId: userId,
         });
         if (cnVentaResult?.facturaNum) {
-          try { (window as any).__lastFacturaNumCN = cnVentaResult.facturaNum; } catch(e) {}
+          try {
+            (window as any).__lastFacturaNumCN = cnVentaResult.facturaNum;
+          } catch (e) {}
         }
       } catch (e) {
         console.warn("Error insertando venta en flujo cliente normal:", e);
@@ -2053,8 +2095,10 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     }
 
     // Generar HTML de copia única (para correo)
-    const facturaNumCN: string = (window as any).__lastFacturaNumCN || '';
-    try { delete (window as any).__lastFacturaNumCN; } catch(e) {}
+    const facturaNumCN: string = (window as any).__lastFacturaNumCN || "";
+    try {
+      delete (window as any).__lastFacturaNumCN;
+    } catch (e) {}
     const optsClienteNormal = {
       cliente: clienteNombre || "Cliente",
       rtn: clienteRTN || "",
@@ -2084,11 +2128,8 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         await handlePostPrint();
       }
       if (printingMode === "cotizacion") {
-        setCotizacionPendingClient({
-          cliente: clienteNombre || "Cliente",
-          rtn: clienteRTN || null,
-        });
-        setCotizacionConfirmOpen(true);
+        // cotización ya guardada automáticamente, limpiar estado pendiente
+        setCotizacionPendingClient(null);
       }
       setClienteNormalModalOpen(false);
     };
@@ -2384,39 +2425,61 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       const rawU = localStorage.getItem("user");
       const parsedU = rawU ? JSON.parse(rawU) : null;
       const rawUserId: any = parsedU
-        ? parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id || null
+        ? parsedU.id ||
+          parsedU.user?.id ||
+          parsedU.sub ||
+          parsedU.user_id ||
+          null
         : null;
       const rawUserName: any = parsedU
-        ? parsedU.username || parsedU.user?.username || parsedU.name || parsedU.user?.name || null
+        ? parsedU.username ||
+          parsedU.user?.username ||
+          parsedU.name ||
+          parsedU.user?.name ||
+          null
         : null;
       const userIdQuery: any =
-        rawUserId != null && typeof rawUserId === "string" && /^\d+$/.test(rawUserId)
+        rawUserId != null &&
+        typeof rawUserId === "string" &&
+        /^\d+$/.test(rawUserId)
           ? Number(rawUserId)
           : rawUserId;
       if (userIdQuery != null) {
         try {
           const { data, error } = await supabase
             .from("cai")
-            .select("id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual")
+            .select(
+              "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual",
+            )
             .eq("usuario_id", userIdQuery)
             .order("id", { ascending: false })
             .limit(1);
-          if (!error && Array.isArray(data) && data.length > 0) caiData = data[0];
-        } catch (e) { /* column may not exist */ }
+          if (!error && Array.isArray(data) && data.length > 0)
+            caiData = data[0];
+        } catch (e) {
+          /* column may not exist */
+        }
       }
       if (!caiData && rawUserName) {
         try {
           const { data, error } = await supabase
             .from("cai")
-            .select("id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual")
+            .select(
+              "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual",
+            )
             .eq("cajero", rawUserName)
             .order("id", { ascending: false })
             .limit(1);
-          if (!error && Array.isArray(data) && data.length > 0) caiData = data[0];
-        } catch (e) { /* ignore */ }
+          if (!error && Array.isArray(data) && data.length > 0)
+            caiData = data[0];
+        } catch (e) {
+          /* ignore */
+        }
       }
       if (caiData) {
-        try { localStorage.setItem("caiInfo", JSON.stringify(caiData)); } catch (e) {}
+        try {
+          localStorage.setItem("caiInfo", JSON.stringify(caiData));
+        } catch (e) {}
         setCaiInfoState(caiData);
       }
     } catch (e) {
@@ -3334,25 +3397,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           onExchangeRateChange={(v) => setExchangeRate(v)}
         />
 
-        {/* Confirmación para guardar cotización (separada) */}
-        <CotizacionConfirmModal
-          open={cotizacionConfirmOpen}
-          onClose={() => setCotizacionConfirmOpen(false)}
-          onCancel={() => {
-            setCotizacionConfirmOpen(false);
-            setCotizacionPendingClient(null);
-          }}
-          onSave={async () => {
-            setCotizacionConfirmOpen(false);
-            try {
-              const saved = await saveCotizacion(cotizacionPendingClient || {});
-              if (saved && saved.id) setCotizacionEditId(String(saved.id));
-            } catch (e) {
-              console.warn("Error guardando cotizacion desde confirm modal", e);
-            }
-            setCotizacionPendingClient(null);
-          }}
-        />
+        {/* CotizacionConfirmModal eliminado: la cotización se guarda automáticamente */}
 
         <CotizacionModal
           open={cotizacionModalOpen}
