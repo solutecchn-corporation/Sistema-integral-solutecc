@@ -45,6 +45,7 @@ import RegistroProducto from "./adminViews/RegistroProducto";
 import Cotizaciones from "./adminViews/Cotizaciones";
 import PromocionesDescuento from "./adminViews/PromocionesDescuento";
 import DevolucionesAdmin from "./adminViews/DevolucionesAdmin";
+import BannersPromocionales from "./adminViews/BannersPromocionales";
 
 // Mapeo de IDs de menú a componentes para renderizado dinámico
 // Se utiliza useMemo para que este objeto no se recree en cada render si no es necesario
@@ -89,6 +90,7 @@ const VIEW_COMPONENTS: Record<string, React.FC<any>> = {
   devoluciones_admin: DevolucionesAdmin,
   cotizaciones: Cotizaciones,
   promociones_descuento: PromocionesDescuento,
+  banners_promocionales: BannersPromocionales,
   // Para los que solo tienen una sub-opción, podemos mapear el parent-id al componente por defecto si es necesario
   // o confiar en el placeholder si el subActive no está definido.
 };

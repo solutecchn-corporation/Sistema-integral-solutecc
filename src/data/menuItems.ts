@@ -64,6 +64,7 @@ export function getFilteredMenuItems(): any[] {
         { id: "usuarios_web", label: "Usuarios web" },
         { id: "pedidos_web", label: "Pedidos web / Ecommerce" },
         { id: "promociones_descuento", label: "Configuración de promociones" },
+        { id: "banners_promocionales", label: "Banners promocionales" },
       ],
     },
     {
