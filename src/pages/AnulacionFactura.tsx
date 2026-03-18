@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { formatMoney } from '../lib/formatMoney';
+import { formatMoney } from "../lib/formatMoney";
 import supabase from "../lib/supabaseClient";
 import ModalWrapper from "../components/ModalWrapper";
 import Confirmado from "../components/Confirmado";
 import { generateAnulacionHTML } from "../lib/anulacionhtmlimpresion";
+import SeleccionFacturaModal from "../components/SeleccionFacturaModal";
 
 export default function AnulacionFactura({ onBack }: { onBack: () => void }) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -14,79 +15,42 @@ export default function AnulacionFactura({ onBack }: { onBack: () => void }) {
   const [successOpen, setSuccessOpen] = useState(false);
   const [errorOpen, setErrorOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  // Selector para facturas con el mismo número (diferente CAI)
+  const [resultadosBusqueda, setResultadosBusqueda] = useState<any[]>([]);
+  const [showSelectorFactura, setShowSelectorFactura] = useState(false);
 
-  const handleSearch = async () => {
-    if (!searchTerm.trim()) {
-      setErrorMessage("Por favor ingresa un número de factura");
-      setErrorOpen(true);
-      return;
-    }
-
+  // Procesa la venta ya seleccionada (único resultado o elegida en el selector)
+  const procesarVentaSeleccionada = async (venta: any) => {
+    setShowSelectorFactura(false);
     setLoading(true);
     try {
-      // 1. Buscar la venta
-      const { data: venta, error: ventaError } = await supabase
-        .from("ventas")
-        .select("*")
-        .eq("factura", searchTerm.trim())
-        .maybeSingle();
-
-      if (ventaError) throw ventaError;
-      if (!venta) {
-        setErrorMessage("Factura no encontrada");
+      if (venta.estado && String(venta.estado).toLowerCase() === "anulado") {
+        setErrorMessage(
+          "Esta factura ya está anulada. No se puede anular nuevamente.",
+        );
         setErrorOpen(true);
-        setLoading(false);
         return;
       }
 
-      // Block if invoice already annulled
-      try {
-        if (
-          (venta as any).estado &&
-          String((venta as any).estado).toLowerCase() === "anulado"
-        ) {
-          setErrorMessage(
-            "Esta factura ya está anulada. No se puede anular nuevamente."
-          );
-          setErrorOpen(true);
-          setLoading(false);
-          return;
-        }
-      } catch (e) {
-        /* ignore */
+      const { data: existsDev } = await supabase
+        .from("devoluciones_ventas")
+        .select("id")
+        .eq("venta_id", venta.id)
+        .limit(1);
+      if (Array.isArray(existsDev) && existsDev.length > 0) {
+        setErrorMessage(
+          "La factura ya posee devoluciones registradas. No se puede anular.",
+        );
+        setErrorOpen(true);
+        return;
       }
 
-      // Block if there are devoluciones related to this venta
-      try {
-        const { data: existsDev, error: devErr } = await supabase
-          .from("devoluciones_ventas")
-          .select("id")
-          .eq("venta_id", (venta as any).id)
-          .limit(1);
-
-        if (devErr) {
-          console.debug("Error checking devoluciones for anulacion:", devErr);
-        } else if (Array.isArray(existsDev) && existsDev.length > 0) {
-          setErrorMessage(
-            "La factura ya posee devoluciones registradas. No se puede anular."
-          );
-          setErrorOpen(true);
-          setLoading(false);
-          return;
-        }
-      } catch (e) {
-        console.debug("Exception checking devoluciones for anulacion:", e);
-      }
-
-      // 2. Buscar los detalles
       const { data: detalles, error: detallesError } = await supabase
         .from("ventas_detalle")
         .select("*")
         .eq("venta_id", venta.id);
-
       if (detallesError) throw detallesError;
 
-      // 3. Enriquecer con nombres de productos
       const enrichedDetalles = await Promise.all(
         (detalles || []).map(async (d: any) => {
           const { data: prod } = await supabase
@@ -99,18 +63,61 @@ export default function AnulacionFactura({ onBack }: { onBack: () => void }) {
             nombre_producto: prod?.nombre || "Producto desconocido",
             sku: prod?.sku || "",
           };
-        })
+        }),
       );
 
-      setInvoiceData({
-        ...venta,
-        items: enrichedDetalles,
-      });
+      setInvoiceData({ ...venta, items: enrichedDetalles });
       setDetailsModalOpen(true);
+    } catch (error: any) {
+      console.error("Error procesando factura:", error);
+      setErrorMessage(
+        "Error al procesar la factura: " +
+          (error.message || "Error desconocido"),
+      );
+      setErrorOpen(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!searchTerm.trim()) {
+      setErrorMessage("Por favor ingresa un número de factura");
+      setErrorOpen(true);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Buscar TODAS las ventas con ese número de factura
+      const { data: ventas, error: ventaError } = await supabase
+        .from("ventas")
+        .select("*")
+        .eq("factura", searchTerm.trim())
+        .order("fecha_venta", { ascending: false });
+
+      if (ventaError) throw ventaError;
+      if (!ventas || ventas.length === 0) {
+        setErrorMessage("Factura no encontrada");
+        setErrorOpen(true);
+        setLoading(false);
+        return;
+      }
+
+      // Si hay más de 1 resultado con diferente CAI → mostrar selector
+      if (ventas.length > 1) {
+        setResultadosBusqueda(ventas);
+        setShowSelectorFactura(true);
+        setLoading(false);
+        return;
+      }
+
+      // Solo 1 resultado → continuar directamente
+      await procesarVentaSeleccionada(ventas[0]);
     } catch (error: any) {
       console.error("Error buscando factura:", error);
       setErrorMessage(
-        "Error al buscar la factura: " + (error.message || "Error desconocido")
+        "Error al buscar la factura: " + (error.message || "Error desconocido"),
       );
       setErrorOpen(true);
     } finally {
@@ -176,7 +183,7 @@ export default function AnulacionFactura({ onBack }: { onBack: () => void }) {
         console.error("Error registrando inventario:", invError);
         // No detenemos el flujo principal, but show error modal
         setErrorMessage(
-          "La factura se anuló, pero hubo un error registrando el reingreso al inventario. Por favor verifique manualmente."
+          "La factura se anuló, pero hubo un error registrando el reingreso al inventario. Por favor verifique manualmente.",
         );
         setErrorOpen(true);
       } else {
@@ -199,7 +206,7 @@ export default function AnulacionFactura({ onBack }: { onBack: () => void }) {
             precio: i.precio_unitario,
           })),
           total: invoiceData.total,
-        }
+        },
       );
 
       const printWindow = window.open("", "_blank");
@@ -220,7 +227,7 @@ export default function AnulacionFactura({ onBack }: { onBack: () => void }) {
     } catch (error: any) {
       console.error("Error anulando factura:", error);
       alert(
-        "Error al anular la factura: " + (error.message || "Error desconocido")
+        "Error al anular la factura: " + (error.message || "Error desconocido"),
       );
     } finally {
       setLoading(false);
@@ -681,6 +688,15 @@ export default function AnulacionFactura({ onBack }: { onBack: () => void }) {
           </div>
         </div>
       </ModalWrapper>
+      {/* Selector cuando hay múltiples facturas con el mismo número */}
+      {showSelectorFactura && (
+        <SeleccionFacturaModal
+          ventas={resultadosBusqueda}
+          titulo="Múltiples facturas con ese número — elige por CAI"
+          onSelect={(v) => procesarVentaSeleccionada(v)}
+          onClose={() => setShowSelectorFactura(false)}
+        />
+      )}
     </div>
   );
 }

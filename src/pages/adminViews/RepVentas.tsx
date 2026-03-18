@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { formatMoney } from '../../lib/formatMoney';
+import { formatMoney } from "../../lib/formatMoney";
 import supabase from "../../lib/supabaseClient";
 
 export default function RepVentas() {
@@ -8,10 +8,10 @@ export default function RepVentas() {
   prior.setDate(today.getDate() - 30);
 
   const [startDate, setStartDate] = useState<string>(
-    prior.toISOString().slice(0, 10)
+    prior.toISOString().slice(0, 10),
   );
   const [endDate, setEndDate] = useState<string>(
-    today.toISOString().slice(0, 10)
+    today.toISOString().slice(0, 10),
   );
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<any[]>([]);
@@ -34,7 +34,7 @@ export default function RepVentas() {
 
       // Only pagadas
       const ventasPagadas = ventasArr.filter(
-        (v: any) => String(v.estado || "").toLowerCase() === "pagada"
+        (v: any) => String(v.estado || "").toLowerCase() === "pagada",
       );
 
       const ventaIds = ventasPagadas.map((v: any) => v.id).filter(Boolean);
@@ -51,7 +51,7 @@ export default function RepVentas() {
 
       // Enrich product info from inventario
       const productoIds = Array.from(
-        new Set(detalles.map((d: any) => d.producto_id).filter(Boolean))
+        new Set(detalles.map((d: any) => d.producto_id).filter(Boolean)),
       );
       let productosMap: Record<string, any> = {};
       if (productoIds.length > 0) {
@@ -73,7 +73,7 @@ export default function RepVentas() {
       // Aggregate per venta
       const rowsAgg = ventasPagadas.map((v: any) => {
         const dets = detalles.filter(
-          (d: any) => String(d.venta_id) === String(v.id)
+          (d: any) => String(d.venta_id) === String(v.id),
         );
 
         const productosList = dets
@@ -82,12 +82,12 @@ export default function RepVentas() {
               d.producto_nombre ||
               productosMap[String(d.producto_id)]?.nombre ||
               d.nombre ||
-              ""
+              "",
           )
           .filter(Boolean);
         const cantidadTotal = dets.reduce(
           (s: number, d: any) => s + Number(d.cantidad || 0),
-          0
+          0,
         );
 
         // sums
@@ -170,7 +170,8 @@ export default function RepVentas() {
             d.aplica_impuesto_18 != null
               ? toBool(d.aplica_impuesto_18)
               : toBool(
-                  prodFromDetalle?.aplica_impuesto_18 ?? prod.aplica_impuesto_18
+                  prodFromDetalle?.aplica_impuesto_18 ??
+                    prod.aplica_impuesto_18,
                 );
 
           if (exonerado) {
@@ -185,7 +186,7 @@ export default function RepVentas() {
                 ? toBool(d.aplica_impuesto_turistico)
                 : toBool(
                     prodFromDetalle?.aplica_impuesto_turistico ??
-                      prod.aplica_impuesto_turistico
+                      prod.aplica_impuesto_turistico,
                   );
             if (turAplica) subTuristico += lineGross;
             // compute tax portion assuming price includes tax
@@ -236,23 +237,23 @@ export default function RepVentas() {
   // Calcular totales
   const totalCantidad = rows.reduce(
     (sum, r) => sum + Number(r.cantidad || 0),
-    0
+    0,
   );
   const totalSubExonerado = rows.reduce(
     (sum, r) => sum + Number(r.subExonerado || 0),
-    0
+    0,
   );
   const totalSubExento = rows.reduce(
     (sum, r) => sum + Number(r.subExento || 0),
-    0
+    0,
   );
   const totalSubGravado = rows.reduce(
     (sum, r) => sum + Number(r.subGravado || 0),
-    0
+    0,
   );
   const totalSubTuristico = rows.reduce(
     (sum, r) => sum + Number(r.subTuristico || 0),
-    0
+    0,
   );
   const totalIsv15 = rows.reduce((sum, r) => sum + Number(r.isv15 || 0), 0);
   const totalIsv18 = rows.reduce((sum, r) => sum + Number(r.isv18 || 0), 0);
@@ -433,37 +434,7 @@ export default function RepVentas() {
                   color: "#0b1220",
                 }}
               >
-                SUB TURÍSTICO
-              </th>
-              <th
-                style={{
-                  padding: 12,
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: "#0b1220",
-                }}
-              >
                 ISV (15%)
-              </th>
-              <th
-                style={{
-                  padding: 12,
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: "#0b1220",
-                }}
-              >
-                ISV (18%)
-              </th>
-              <th
-                style={{
-                  padding: 12,
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: "#0b1220",
-                }}
-              >
-                ISV (4%)
               </th>
               <th
                 style={{
@@ -481,7 +452,7 @@ export default function RepVentas() {
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={14}
+                  colSpan={11}
                   style={{
                     padding: 24,
                     textAlign: "center",
@@ -515,16 +486,7 @@ export default function RepVentas() {
                     L {formatMoney(Number(r.subGravado || 0))}
                   </td>
                   <td style={{ padding: 12, fontSize: 13 }}>
-                    L {formatMoney(Number(r.subTuristico || 0))}
-                  </td>
-                  <td style={{ padding: 12, fontSize: 13 }}>
                     L {formatMoney(Number(r.isv15 || 0))}
-                  </td>
-                  <td style={{ padding: 12, fontSize: 13 }}>
-                    L {formatMoney(Number(r.isv18 || 0))}
-                  </td>
-                  <td style={{ padding: 12, fontSize: 13 }}>
-                    L {formatMoney(Number(r.isv4 || 0))}
                   </td>
                   <td style={{ padding: 12, fontSize: 13 }}>
                     L {formatMoney(Number(r.total || 0))}
@@ -552,16 +514,7 @@ export default function RepVentas() {
                   L {formatMoney(totalSubGravado)}
                 </td>
                 <td style={{ padding: 12, fontSize: 13 }}>
-                  L {formatMoney(totalSubTuristico)}
-                </td>
-                <td style={{ padding: 12, fontSize: 13 }}>
                   L {formatMoney(totalIsv15)}
-                </td>
-                <td style={{ padding: 12, fontSize: 13 }}>
-                  L {formatMoney(totalIsv18)}
-                </td>
-                <td style={{ padding: 12, fontSize: 13 }}>
-                  L {formatMoney(totalIsv4)}
                 </td>
                 <td style={{ padding: 12, fontSize: 13 }}>
                   L {formatMoney(totalGeneral)}

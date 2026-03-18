@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { formatMoney } from '../lib/formatMoney';
+import { formatMoney } from "../lib/formatMoney";
 import NotasCreditoModal from "../components/NotasCreditoModal";
 import ModalWrapper from "../components/ModalWrapper";
 import Confirmado from "../components/Confirmado";
 import supabase from "../lib/supabaseClient";
 import useHondurasTime, { hondurasTodayDate } from "../lib/useHondurasTime";
 import generateNcHTML, { generateNotaAbonoHTML } from "../lib/nchtmlimp";
+import SeleccionFacturaModal from "../components/SeleccionFacturaModal";
 
 type Devolucion = {
   id: number;
@@ -50,6 +51,9 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
   const [errorOpen, setErrorOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [motivoText, setMotivoText] = useState<string>("");
+  // Selector para facturas con el mismo número (diferente CAI)
+  const [resultadosBusquedaDev, setResultadosBusquedaDev] = useState<any[]>([]);
+  const [showSelectorFacturaDev, setShowSelectorFacturaDev] = useState(false);
 
   const { hondurasNowISO } = useHondurasTime();
 
@@ -86,9 +90,9 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
       let rows: any[] = Array.isArray(data) ? data : [];
       if (userName)
         rows = rows.filter(
-          (r) => (r.usuario || "").toLowerCase() === userName.toLowerCase()
+          (r) => (r.usuario || "").toLowerCase() === userName.toLowerCase(),
         );
-      setDevoluciones(rows.map((r) => ({ ...r } as Devolucion)));
+      setDevoluciones(rows.map((r) => ({ ...r }) as Devolucion));
     } catch (e) {
       console.debug("loadDevoluciones exception", e);
       setDevoluciones([]);
@@ -157,7 +161,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         console.debug("Insert devoluciones_ventas error", error);
         setErrorMessage(
           "Error al guardar devolución: " +
-            (error.message || JSON.stringify(error))
+            (error.message || JSON.stringify(error)),
         );
         setErrorOpen(true);
         return;
@@ -179,51 +183,23 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
     }
   }
 
-  async function buscarFactura() {
-    if (!facturaBuscar || String(facturaBuscar).trim() === "") {
-      setErrorMessage("Ingresa número de factura a buscar");
-      setErrorOpen(true);
-      return;
-    }
+  // Procesa la venta ya seleccionada (único o elegida en el selector por CAI)
+  async function procesarVentaParaDevolucion(ventaRow: any) {
+    setShowSelectorFacturaDev(false);
     try {
-      const facturaVal = facturaBuscar;
-      // buscar venta por campo `factura` (seleccionamos todo y luego usamos los campos disponibles)
-      const { data: ventaRow, error: ventaErr } = await supabase
-        .from("ventas")
-        .select("*")
-        .eq("factura", facturaVal)
-        .maybeSingle();
-      if (ventaErr) {
-        console.debug("Error buscando venta por factura", ventaErr);
-        setErrorMessage(
-          "Error buscando la factura: " +
-            (ventaErr.message || JSON.stringify(ventaErr))
-        );
-        setErrorOpen(true);
-        return;
-      }
-      if (!ventaRow || !ventaRow.id) {
-        setErrorMessage("Factura no encontrada");
-        setErrorOpen(true);
-        return;
-      }
-
       // Bloquear devoluciones para facturas del día actual o posteriores
       try {
         const ventaFechaRaw = (ventaRow as any).fecha_venta || null;
         if (ventaFechaRaw) {
-          // Obtener inicio del día en Honduras
-          const todayStr = hondurasTodayDate(); // YYYY-MM-DD
+          const todayStr = hondurasTodayDate();
           const ventaFechaStr = String(ventaFechaRaw);
-          // Si la fecha almacenada comienza con la fecha de hoy (ISO-like), bloqueamos
           if (ventaFechaStr.startsWith(todayStr)) {
             setErrorMessage(
-              "No se permite crear devoluciones para facturas del día actual."
+              "No se permite crear devoluciones para facturas del día actual.",
             );
             setErrorOpen(true);
             return;
           }
-          // Fallback: comparar fechas completas
           const ventaDate = new Date(ventaFechaStr);
           const hoyInicio = new Date(useHondurasTime().hondurasNowISO());
           hoyInicio.setHours(0, 0, 0, 0);
@@ -232,7 +208,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
             ventaDate.getTime() >= hoyInicio.getTime()
           ) {
             setErrorMessage(
-              "No se permite crear devoluciones para facturas del día actual. Debe realizar una anulacion."
+              "No se permite crear devoluciones para facturas del día actual. Debe realizar una anulacion.",
             );
             setErrorOpen(true);
             return;
@@ -242,27 +218,24 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         console.debug("Error validando fecha de venta para devoluciones", e);
       }
 
-      // Prevent creating a devolución if there's already a devoluciones_ventas record linked to this venta
+      // Verificar que no exista ya una devolución
       try {
         const { data: existing, error: existErr } = await supabase
           .from("devoluciones_ventas")
           .select("id")
           .eq("venta_id", (ventaRow as any).id)
           .limit(1);
-
         if (existErr) {
-          console.debug("Error checking existing devoluciones:", existErr);
           setErrorMessage(
             "Error verificando devoluciones existentes: " +
-              (existErr.message || JSON.stringify(existErr))
+              (existErr.message || JSON.stringify(existErr)),
           );
           setErrorOpen(true);
           return;
         }
-
         if (Array.isArray(existing) && existing.length > 0) {
           setErrorMessage(
-            "Esta factura ya cuenta con una devolución registrada. No se puede crear otra devolución."
+            "Esta factura ya cuenta con una devolución registrada. No se puede crear otra devolución.",
           );
           setErrorOpen(true);
           return;
@@ -273,18 +246,14 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         setErrorOpen(true);
         return;
       }
-      // enriquecer venta con datos del cliente (nombre, rtn) si es posible
+
+      // Enriquecer venta con datos del cliente
       let ventaEnriquecida: any = { ...(ventaRow as any) };
       try {
-        // Priorizar campos ya presentes en la fila: `nombre_cliente`, `rtn` o variantes
-        if ((ventaRow as any).nombre_cliente) {
+        if ((ventaRow as any).nombre_cliente)
           ventaEnriquecida.cliente_nombre = (ventaRow as any).nombre_cliente;
-        }
-        if ((ventaRow as any).rtn) {
+        if ((ventaRow as any).rtn)
           ventaEnriquecida.cliente_rtn = (ventaRow as any).rtn;
-        }
-
-        // Si existe cliente_id y parece UUID, intentar leer nombre/rtn desde la tabla `clientes`
         const clienteId = (ventaRow as any).cliente_id;
         if (clienteId && isUUID(String(clienteId))) {
           const { data: cli, error: cliErr } = await supabase
@@ -304,21 +273,20 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
       }
 
       setVentaEncontrada(ventaEnriquecida);
-      // obtener detalles de la venta
+
+      // Obtener detalles de la venta
       const { data: detalles, error: detErr } = await supabase
         .from("ventas_detalle")
         .select("id,venta_id,producto_id,cantidad,precio_unitario,subtotal")
         .eq("venta_id", ventaRow.id);
       if (detErr) {
-        console.debug("Error obteniendo detalles de venta", detErr);
         setErrorMessage("Error obteniendo detalles de la factura");
         setErrorOpen(true);
         return;
       }
       const detallesArr = Array.isArray(detalles) ? detalles : [];
-      // enrich detalles with product name/sku from inventario table
       const productoIds = Array.from(
-        new Set(detallesArr.map((d: any) => d.producto_id))
+        new Set(detallesArr.map((d: any) => d.producto_id)),
       ).filter(Boolean);
       let productosMap: Record<
         string,
@@ -342,7 +310,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         } catch (e) {
           console.debug(
             "Error cargando datos de productos desde inventario",
-            e
+            e,
           );
         }
       }
@@ -353,8 +321,51 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         tipo: productosMap[String(d.producto_id)]?.tipo || "producto",
       }));
       setVentaProductos(enriched);
-      // reset selected items
       setSelectedItems([]);
+    } catch (e) {
+      console.debug("procesarVentaParaDevolucion exception", e);
+      setErrorMessage("Error inesperado procesando factura");
+      setErrorOpen(true);
+    }
+  }
+
+  async function buscarFactura() {
+    if (!facturaBuscar || String(facturaBuscar).trim() === "") {
+      setErrorMessage("Ingresa número de factura a buscar");
+      setErrorOpen(true);
+      return;
+    }
+    try {
+      const facturaVal = String(facturaBuscar).trim();
+      // Buscar TODAS las ventas con ese número de factura
+      const { data: ventas, error: ventaErr } = await supabase
+        .from("ventas")
+        .select("*")
+        .eq("factura", facturaVal)
+        .order("fecha_venta", { ascending: false });
+      if (ventaErr) {
+        setErrorMessage(
+          "Error buscando la factura: " +
+            (ventaErr.message || JSON.stringify(ventaErr)),
+        );
+        setErrorOpen(true);
+        return;
+      }
+      if (!ventas || ventas.length === 0) {
+        setErrorMessage("Factura no encontrada");
+        setErrorOpen(true);
+        return;
+      }
+
+      // Si hay más de 1 resultado con diferente CAI → mostrar selector
+      if (ventas.length > 1) {
+        setResultadosBusquedaDev(ventas);
+        setShowSelectorFacturaDev(true);
+        return;
+      }
+
+      // Solo 1 resultado → continuar directamente
+      await procesarVentaParaDevolucion(ventas[0]);
     } catch (e) {
       console.debug("buscarFactura exception", e);
       setErrorMessage("Error inesperado buscando factura");
@@ -394,12 +405,12 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         if (newQty < 0) newQty = 0;
         if (newQty > available) newQty = available;
         return { ...s, cantidad: newQty };
-      })
+      }),
     );
   }
 
   async function createDevolucionFromSelection(
-    type: "efectivo" | "nota_abono" = "efectivo"
+    type: "efectivo" | "nota_abono" = "efectivo",
   ) {
     if (!ventaEncontrada || !ventaEncontrada.id) {
       setErrorMessage("Primero busca una factura válida");
@@ -420,7 +431,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         : null;
     if (!userIdCandidate) {
       setErrorMessage(
-        "Necesitas iniciar sesión con un usuario válido (usuario_id en localStorage)."
+        "Necesitas iniciar sesión con un usuario válido (usuario_id en localStorage).",
       );
       setErrorOpen(true);
       return;
@@ -454,7 +465,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         try {
           console.debug(
             "Error fetching ventaFull:",
-            JSON.stringify(vfullErr, null, 2)
+            JSON.stringify(vfullErr, null, 2),
           );
         } catch (ee) {
           console.debug("Error fetching ventaFull", vfullErr);
@@ -482,7 +493,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
             try {
               console.debug(
                 "Error fetching cliente rtn:",
-                JSON.stringify(cliErr, null, 2)
+                JSON.stringify(cliErr, null, 2),
               );
             } catch (ee) {
               console.debug("Error fetching cliente rtn", cliErr);
@@ -500,7 +511,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
       (s, it) =>
         s +
         Number(it.cantidad || 0) * Number(it.precio_unitario || it.precio || 0),
-      0
+      0,
     );
     let impuestoSelected = 0;
     try {
@@ -549,7 +560,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         console.debug("Error creando header de devolución", headerErr);
         setErrorMessage(
           "Error creando devolución: " +
-            (headerErr?.message || JSON.stringify(headerErr))
+            (headerErr?.message || JSON.stringify(headerErr)),
         );
         setErrorOpen(true);
         return;
@@ -563,7 +574,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         precio_unitario: Number(s.precio_unitario || 0),
         descuento: 0,
         subtotal: Number(
-          (Number(s.cantidad) * Number(s.precio_unitario || 0)).toFixed(4)
+          (Number(s.cantidad) * Number(s.precio_unitario || 0)).toFixed(4),
         ),
         impuesto: 0,
         motivo: motivoText || null,
@@ -576,7 +587,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         console.debug("Error insertando items de devolución", itemsErr);
         setErrorMessage(
           "Error guardando items de devolución: " +
-            (itemsErr?.message || JSON.stringify(itemsErr))
+            (itemsErr?.message || JSON.stringify(itemsErr)),
         );
         setErrorOpen(true);
         return;
@@ -648,18 +659,18 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
               try {
                 console.debug(
                   "Error actualizando header devolucion con nc info",
-                  JSON.stringify(updHeaderErr, null, 2)
+                  JSON.stringify(updHeaderErr, null, 2),
                 );
               } catch (ee) {
                 console.debug(
                   "Error actualizando header devolucion con nc info",
-                  updHeaderErr
+                  updHeaderErr,
                 );
               }
             } else {
               console.debug(
                 "Header devolucion actualizado (update returned):",
-                updHeaderData
+                updHeaderData,
               );
             }
             // read back the row to confirm persisted values
@@ -672,7 +683,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
               if (verifyErr)
                 console.debug(
                   "Error leyendo devoluciones_ventas post-update",
-                  verifyErr
+                  verifyErr,
                 );
               else console.debug("Devolucion row after update:", verifyRow);
             } catch (ee) {
@@ -681,7 +692,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
           } catch (e) {
             console.debug(
               "Exception updating devolucion header with nc info",
-              e
+              e,
             );
           }
         }
@@ -700,7 +711,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         subtotal: carrito.reduce(
           (a: number, it: any) =>
             a + Number(it.precio_unitario || 0) * Number(it.cantidad || 0),
-          0
+          0,
         ),
       };
 
@@ -743,18 +754,18 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
               console.warn(
                 "Error registrando entrada en registro_de_inventario:",
                 JSON.stringify(regErr, null, 2),
-                { payload: registroRows }
+                { payload: registroRows },
               );
             } catch (ee) {
               console.warn(
                 "Error registrando entrada en registro_de_inventario (no serializable):",
-                regErr
+                regErr,
               );
             }
           } else
             console.debug(
               "Registro_de_inventario inserciones (entrada):",
-              regIns
+              regIns,
             );
         }
 
@@ -776,13 +787,13 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
                 console.warn(
                   "Error leyendo stock de inventario para producto",
                   pid,
-                  JSON.stringify(prodErr, null, 2)
+                  JSON.stringify(prodErr, null, 2),
                 );
               } catch (ee) {
                 console.warn(
                   "Error leyendo stock de inventario para producto",
                   pid,
-                  prodErr
+                  prodErr,
                 );
               }
               continue;
@@ -792,7 +803,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
               console.debug(
                 "inventario.stock column not present for product",
                 pid,
-                "- skipping stock update"
+                "- skipping stock update",
               );
               continue;
             }
@@ -806,7 +817,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
               console.warn(
                 "Error actualizando stock para producto",
                 pid,
-                updErr2
+                updErr2,
               );
             else
               console.debug(
@@ -815,7 +826,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
                 "de",
                 currentStock,
                 "a",
-                newStock
+                newStock,
               );
           } catch (ee) {
             console.warn("Excepción actualizando stock para producto", ee);
@@ -837,7 +848,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
             try {
               console.debug(
                 "Error leyendo ventas.observaciones",
-                JSON.stringify(ventaRowErr, null, 2)
+                JSON.stringify(ventaRowErr, null, 2),
               );
             } catch (ee) {
               console.debug("Error leyendo ventas.observaciones", ventaRowErr);
@@ -865,18 +876,18 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
               try {
                 console.warn(
                   "Error actualizando ventas.observaciones:",
-                  JSON.stringify(updVentasErr, null, 2)
+                  JSON.stringify(updVentasErr, null, 2),
                 );
               } catch (ee) {
                 console.warn(
                   "Error actualizando ventas.observaciones:",
-                  updVentasErr
+                  updVentasErr,
                 );
               }
             } else
               console.debug(
                 "ventas.observaciones actualizada para venta",
-                ventaEncontrada.id
+                ventaEncontrada.id,
               );
           }
         }
@@ -926,25 +937,25 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
             try {
               console.debug(
                 "Error guardando cai/numero en devoluciones_ventas antes de imprimir:",
-                JSON.stringify(saveCaiErr, null, 2)
+                JSON.stringify(saveCaiErr, null, 2),
               );
             } catch (ee) {
               console.debug(
                 "Error guardando cai/numero en devoluciones_ventas antes de imprimir",
-                saveCaiErr
+                saveCaiErr,
               );
             }
           } else {
             console.debug(
               "Guardado cai/numero en devoluciones_ventas (desde ncInfo):",
-              savedCaiRow
+              savedCaiRow,
             );
           }
         }
       } catch (e) {
         console.debug(
           "Exception guardando cai desde ncInfo antes de imprimir",
-          e
+          e,
         );
       }
 
@@ -969,7 +980,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
       try {
         console.debug(
           "createDevolucionFromSelection exception",
-          JSON.stringify(e, null, 2)
+          JSON.stringify(e, null, 2),
         );
       } catch (ee) {
         console.debug("createDevolucionFromSelection exception", e);
@@ -1039,7 +1050,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         const { data, error } = await supabase
           .from("ncredito")
           .select(
-            "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual,caja,cajero,usuario_id"
+            "id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual,caja,cajero,usuario_id",
           )
           .eq("cajero", userName)
           .order("id", { ascending: false })
@@ -1276,7 +1287,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
                           <strong>Fecha:</strong>{" "}
                           {new Date(ventaEncontrada.fecha_venta).toLocaleString(
                             undefined,
-                            { timeZone: "America/Tegucigalpa" }
+                            { timeZone: "America/Tegucigalpa" },
                           )}
                         </div>
                       ) : null}
@@ -1478,7 +1489,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
                             onChange={(e) =>
                               updateSelectedQuantity(
                                 s.detalle_id,
-                                Number(e.target.value)
+                                Number(e.target.value),
                               )
                             }
                             style={{
@@ -1497,8 +1508,8 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
                             onClick={() =>
                               setSelectedItems((prev) =>
                                 prev.filter(
-                                  (x) => x.detalle_id !== s.detalle_id
-                                )
+                                  (x) => x.detalle_id !== s.detalle_id,
+                                ),
                               )
                             }
                             style={{ padding: "6px 8px", fontSize: "13px" }}
@@ -1659,6 +1670,16 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         message={errorMessage}
         onClose={() => setErrorOpen(false)}
       />
+
+      {/* Selector cuando hay múltiples facturas con el mismo número */}
+      {showSelectorFacturaDev && (
+        <SeleccionFacturaModal
+          ventas={resultadosBusquedaDev}
+          titulo="Múltiples facturas con ese número — elige por CAI"
+          onSelect={(v) => procesarVentaParaDevolucion(v)}
+          onClose={() => setShowSelectorFacturaDev(false)}
+        />
+      )}
     </div>
   );
 }

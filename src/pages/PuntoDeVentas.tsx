@@ -24,6 +24,7 @@ import CreateClienteModal from "../components/CreateClienteModal";
 import CotizacionModal from "../components/CotizacionModal";
 import PrintOrEmailModal from "../components/PrintOrEmailModal";
 import EmailFacturaModal from "../components/EmailFacturaModal";
+import HistorialVentasModal from "../components/HistorialVentasModal";
 import { generateFacturaHTML } from "../lib/generateFacturaHTML";
 import generateFacturaHTMLCinta from "../lib/generedordefacturahtmlcinta";
 import generateCotizacionHTML from "../lib/cotizaconhtmlimp";
@@ -317,7 +318,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const [createClienteModalOpen, setCreateClienteModalOpen] = useState(false);
   const [cotizacionModalOpen, setCotizacionModalOpen] = useState(false);
   const skipCotizacionConfirmRef = useRef(false);
-  const postPaymentCallbackRef = useRef<((p: any) => Promise<void>) | null>(null);
+  const postPaymentCallbackRef = useRef<((p: any) => Promise<void>) | null>(
+    null,
+  );
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [paymentDone, setPaymentDone] = useState(false);
   const [paymentInfo, setPaymentInfo] = useState<any | null>(null);
@@ -863,8 +866,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     if (direccionCliente) optsForGenerator.direccionCliente = direccionCliente;
     // Activar modo cotización si printingMode lo dice O si se pasó un número de cotización explícito
     const isCotizacion =
-      printingMode === "cotizacion" ||
-      cotizacionNumero != null;
+      printingMode === "cotizacion" || cotizacionNumero != null;
     if (isCotizacion) {
       generator = generateCotizacionHTML;
       // prefer explicit cotizacionNumero, fallback to last saved numero from state
@@ -1890,7 +1892,8 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   }, [clienteNormalModalOpen]);
 
   const submitClienteNormal = async (paymentInfoOverride?: any) => {
-    const efectivoPago = paymentInfoOverride !== undefined ? paymentInfoOverride : paymentInfo;
+    const efectivoPago =
+      paymentInfoOverride !== undefined ? paymentInfoOverride : paymentInfo;
     // guardar/actualizar cliente en la tabla `clientenatural`
     try {
       if (clienteRTN && clienteNombre) {
@@ -2179,6 +2182,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   };
 
   const [view, setView] = useState<string | null>(null);
+  const [showHistorial, setShowHistorial] = useState(false);
   const [entradas, setEntradas] = useState<any[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedEntrada, setSelectedEntrada] = useState<any | null>(null);
@@ -3169,11 +3173,26 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           userId={userIdState}
           caiInfo={caiInfoState}
           onLogout={onLogout}
-          onNavigate={(v) => setView(v)}
+          onNavigate={(v) => {
+            if (v === "HistorialVentas") {
+              setShowHistorial(true);
+            } else {
+              setView(v);
+            }
+          }}
           onOpenDatosFactura={() => setDatosFacturaOpen(true)}
           onPrintFormatChange={(fmt) => setPrintFormat(fmt)}
           onOpenCajaConfig={() => setCajaConfigOpen(true)}
           printFormat={printFormat}
+        />
+
+        {/* Historial de ventas (modal) */}
+        <HistorialVentasModal
+          open={showHistorial}
+          onClose={() => setShowHistorial(false)}
+          caiInfo={caiInfoState}
+          userName={userName ?? undefined}
+          sessionStart={session?.fecha_apertura ?? null}
         />
 
         <div
@@ -3362,7 +3381,13 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             if (invoiceAfterPayment) {
               try {
                 setInvoiceAfterPayment(false);
-                await finalizeFacturaForCliente("Consumidor Final", "C/F", p, null, direccionClienteFinal);
+                await finalizeFacturaForCliente(
+                  "Consumidor Final",
+                  "C/F",
+                  p,
+                  null,
+                  direccionClienteFinal,
+                );
               } catch (e) {
                 console.warn("Error facturando después del pago:", e);
               }

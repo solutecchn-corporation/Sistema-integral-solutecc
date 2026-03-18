@@ -1,6 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { formatMoney } from "../../lib/formatMoney";
 import supabase from "../../lib/supabaseClient";
+import { generateFacturaHTML } from "../../lib/generateFacturaHTML";
+
+type EstadoFiltro = "todos" | "pagada" | "anulada" | "devolucion";
+
+const ESTADO_COLORS: Record<string, { bg: string; color: string }> = {
+  pagada: { bg: "#dcfce7", color: "#166534" },
+  pagado: { bg: "#dcfce7", color: "#166534" },
+  anulada: { bg: "#fee2e2", color: "#991b1b" },
+  anulado: { bg: "#fee2e2", color: "#991b1b" },
+  devolucion: { bg: "#fef9c3", color: "#854d0e" },
+  devolución: { bg: "#fef9c3", color: "#854d0e" },
+};
 
 export default function FacturasView() {
   const today = new Date();
@@ -15,62 +27,22 @@ export default function FacturasView() {
   );
   const [ventas, setVentas] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [totalSum, setTotalSum] = useState<number>(0);
-  const [totalCount, setTotalCount] = useState<number>(0);
-  const [articulosVendidos, setArticulosVendidos] = useState<number>(0);
+  const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>("todos");
+  const [reprinting, setReprinting] = useState<number | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const startISO = new Date(startDate + "T00:00:00").toISOString();
-      const endISO = new Date(endDate + "T23:59:59").toISOString();
-
-      // Traer ventas en rango usando la columna `fecha_venta`
+      // Usar el string de fecha directo evita desfase de zona horaria
       const { data: ventasData, error: ventasError } = await supabase
         .from("ventas")
         .select("*")
-        .gte("fecha_venta", startISO)
-        .lte("fecha_venta", endISO)
+        .gte("fecha_venta", startDate)
+        .lte("fecha_venta", endDate + "T23:59:59.999")
         .order("fecha_venta", { ascending: false });
 
       if (ventasError) throw ventasError;
-
-      const ventasArr = Array.isArray(ventasData) ? ventasData : [];
-
-      // Filtrar solo pagadas (case-insensitive)
-      const ventasPagadas = ventasArr.filter(
-        (v: any) => String(v.estado || "").toLowerCase() === "pagada",
-      );
-
-      setVentas(ventasPagadas);
-
-      const sum = ventasPagadas.reduce(
-        (s: number, v: any) => s + Number(v.total || 0),
-        0,
-      );
-      setTotalSum(sum);
-      setTotalCount(ventasPagadas.length);
-
-      // Calcular articulos vendidos consultando ventas_detalle para estas ventas
-      const ventaIds = ventasPagadas.map((v: any) => v.id).filter(Boolean);
-      if (ventaIds.length > 0) {
-        const { data: detalles, error: detallesError } = await supabase
-          .from("ventas_detalle")
-          .select("cantidad, venta_id")
-          .in("venta_id", ventaIds as any[]);
-
-        if (!detallesError && Array.isArray(detalles)) {
-          const totalArt = detalles.reduce(
-            (s: number, d: any) => s + Number(d.cantidad || 0),
-            0,
-          );
-          setArticulosVendidos(totalArt);
-        } else {
-          setArticulosVendidos(0);
-        }
-      } else {
-        setArticulosVendidos(0);
-      }
+      setVentas(Array.isArray(ventasData) ? ventasData : []);
     } catch (err) {
       console.error("Error fetching ventas:", err);
     } finally {
@@ -83,16 +55,135 @@ export default function FacturasView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate]);
 
+  // Normaliza el estado del registro para comparar sin importar género ni acentos
+  const normEstado = (raw: string) =>
+    raw
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // quita tildes
+      .replace(/o$/, "a"); // anulado→anulada, pagado→pagada, devolucion queda igual
+
+  // Filtrado por estado
+  const ventasFiltradas = ventas.filter((v: any) => {
+    if (estadoFiltro === "todos") return true;
+    const est = normEstado(String(v.estado || ""));
+    // devolucion: acepta con/sin tilde
+    if (estadoFiltro === "devolucion") return est === "devolucion";
+    return est === estadoFiltro;
+  });
+
+  const ventasPagadas = ventasFiltradas.filter(
+    (v: any) => normEstado(String(v.estado || "")) === "pagada",
+  );
+  const totalSum = ventasPagadas.reduce(
+    (s: number, v: any) => s + Number(v.total || 0),
+    0,
+  );
+  const totalCount = ventasPagadas.length;
+
+  const handleReimprimir = async (venta: any) => {
+    setReprinting(venta.id);
+    try {
+      const { data: detalles } = await supabase
+        .from("ventas_detalle")
+        .select("*")
+        .eq("venta_id", venta.id)
+        .order("id", { ascending: true });
+
+      const { data: pagosData } = await supabase
+        .from("pagos")
+        .select("*")
+        .eq("factura", venta.factura);
+
+      const carrito = (detalles || []).map((d: any) => ({
+        producto: {
+          nombre: d.producto_nombre || d.nombre || d.descripcion || "",
+        },
+        descripcion: d.descripcion || d.producto_nombre || "",
+        cantidad: d.cantidad,
+        precio_unitario: d.precio_unitario,
+        precio: d.precio_unitario,
+        subtotal: d.subtotal,
+        descuento: d.descuento || 0,
+        exento: d.exento,
+        aplica_impuesto_18: d.aplica_impuesto_18,
+        aplica_impuesto_turistico: d.aplica_impuesto_turistico,
+      }));
+
+      let efectivo = 0,
+        tarjeta = 0,
+        transferencia = 0;
+      for (const p of pagosData || []) {
+        const tipo = String(p.tipo || "").toLowerCase();
+        if (tipo === "efectivo") efectivo += Number(p.monto || 0);
+        else if (tipo === "tarjeta") tarjeta += Number(p.monto || 0);
+        else if (tipo === "transferencia")
+          transferencia += Number(p.monto || 0);
+      }
+
+      const html = await generateFacturaHTML(
+        {
+          factura: venta.factura,
+          CAI: venta.cai,
+          rangoAutorizadoDe: venta.rango_desde,
+          rangoAutorizadoHasta: venta.rango_hasta,
+          fechaLimiteEmision: venta.fecha_limite_emision,
+          cliente: venta.nombre_cliente || "Consumidor Final",
+          rtn: venta.rtn,
+        },
+        "factura",
+        {
+          carrito,
+          subtotal: Number(venta.subtotal || venta.total || 0),
+          isvTotal: Number(venta.isv_15 || 0),
+          imp18Total: Number(venta.isv_18 || 0),
+          total: Number(venta.total || 0),
+          gravado: Number(venta.sub_gravado || 0),
+          exento: Number(venta.sub_exento || 0),
+          exonerado: Number(venta.sub_exonerado || 0),
+          pagos: {
+            efectivo,
+            tarjeta,
+            transferencia,
+            cambio: Number(venta.cambio || 0),
+          },
+        },
+      );
+
+      const win = window.open("", "_blank");
+      if (win) {
+        win.document.write(html);
+        win.document.close();
+        win.focus();
+        setTimeout(() => win.print(), 600);
+      }
+    } catch (err) {
+      console.error("Error al reimprimir:", err);
+      alert("No se pudo reimprimir la factura.");
+    } finally {
+      setReprinting(null);
+    }
+  };
+
+  const FILTROS: { label: string; value: EstadoFiltro }[] = [
+    { label: "Todos", value: "todos" },
+    { label: "Pagadas", value: "pagada" },
+    { label: "Anuladas", value: "anulada" },
+    { label: "Devoluciones", value: "devolucion" },
+  ];
+
   return (
     <div style={{ padding: 18 }}>
       <h2 style={{ marginTop: 0 }}>Facturas (ventas)</h2>
 
+      {/* Filtros de fecha y estado */}
       <div
         style={{
           display: "flex",
           gap: 12,
           marginBottom: 18,
-          alignItems: "center",
+          alignItems: "flex-end",
+          flexWrap: "wrap",
         }}
       >
         <div>
@@ -117,6 +208,29 @@ export default function FacturasView() {
             onChange={(e) => setEndDate(e.target.value)}
           />
         </div>
+        {/* Filtro de estado */}
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {FILTROS.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setEstadoFiltro(f.value)}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 20,
+                border: "1.5px solid",
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: estadoFiltro === f.value ? 700 : 400,
+                borderColor: estadoFiltro === f.value ? "#1e3a6e" : "#cbd5e1",
+                background: estadoFiltro === f.value ? "#1e3a6e" : "#f8fafc",
+                color: estadoFiltro === f.value ? "#fff" : "#475569",
+                transition: "all 0.15s",
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
         <div style={{ marginLeft: "auto" }}>
           <button className="btn-opaque" onClick={fetchData} disabled={loading}>
             {loading ? "Cargando..." : "Actualizar"}
@@ -124,42 +238,41 @@ export default function FacturasView() {
         </div>
       </div>
 
+      {/* Tarjetas resumen (solo pagadas) */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
+          gridTemplateColumns: "repeat(3, 1fr)",
           gap: 12,
           marginBottom: 20,
         }}
       >
         <div style={{ background: "white", padding: 16, borderRadius: 8 }}>
-          <div style={{ fontSize: 12, color: "#64748b" }}>Total facturas</div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>
+            Facturas pagadas{" "}
+            {estadoFiltro !== "todos" ? `(${estadoFiltro})` : ""}
+          </div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>{totalCount}</div>
         </div>
         <div style={{ background: "white", padding: 16, borderRadius: 8 }}>
-          <div style={{ fontSize: 12, color: "#64748b" }}>Total venta</div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>
+            Total vendido (pagadas)
+          </div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>
             L {formatMoney(totalSum)}
           </div>
         </div>
         <div style={{ background: "white", padding: 16, borderRadius: 8 }}>
           <div style={{ fontSize: 12, color: "#64748b" }}>
-            Promedio por factura
+            Mostrando en tabla
           </div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>
-            L {formatMoney(totalCount ? totalSum / totalCount : 0)}
-          </div>
-        </div>
-        <div style={{ background: "white", padding: 16, borderRadius: 8 }}>
-          <div style={{ fontSize: 12, color: "#64748b" }}>
-            Artículos vendidos
-          </div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>
-            {articulosVendidos}
+            {ventasFiltradas.length}
           </div>
         </div>
       </div>
 
+      {/* Tabla */}
       <div style={{ background: "white", padding: 12, borderRadius: 8 }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
@@ -169,29 +282,71 @@ export default function FacturasView() {
               <th style={{ padding: 12, textAlign: "right" }}>Total</th>
               <th style={{ padding: 12 }}>Cliente</th>
               <th style={{ padding: 12 }}>Estado</th>
+              <th style={{ padding: 12, textAlign: "center" }}>Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {ventas.map((v: any) => (
-              <tr key={v.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                <td style={{ padding: 12 }}>{v.factura}</td>
-                <td style={{ padding: 12 }}>
-                  {v.fecha_venta
-                    ? new Date(v.fecha_venta).toLocaleString()
-                    : "-"}
-                </td>
-                <td style={{ padding: 12, textAlign: "right" }}>
-                  L {formatMoney(Number(v.total || 0))}
-                </td>
-                <td style={{ padding: 12 }}>
-                  {v.nombre_cliente || v.cliente_id || "-"}
-                </td>
-                <td style={{ padding: 12 }}>{v.estado}</td>
-              </tr>
-            ))}
+            {ventasFiltradas.map((v: any) => {
+              const estKey = String(v.estado || "").toLowerCase();
+              const chip = ESTADO_COLORS[estKey];
+              return (
+                <tr key={v.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                  <td style={{ padding: 12, fontWeight: 600 }}>{v.factura}</td>
+                  <td style={{ padding: 12 }}>
+                    {v.fecha_venta
+                      ? new Date(v.fecha_venta).toLocaleString()
+                      : "-"}
+                  </td>
+                  <td style={{ padding: 12, textAlign: "right" }}>
+                    L {formatMoney(Number(v.total || 0))}
+                  </td>
+                  <td style={{ padding: 12 }}>
+                    {v.nombre_cliente || v.cliente_id || "-"}
+                  </td>
+                  <td style={{ padding: 12 }}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        padding: "2px 10px",
+                        borderRadius: 12,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        background: chip?.bg || "#f1f5f9",
+                        color: chip?.color || "#475569",
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {v.estado || "-"}
+                    </span>
+                  </td>
+                  <td style={{ padding: 12, textAlign: "center" }}>
+                    <button
+                      onClick={() => handleReimprimir(v)}
+                      disabled={reprinting === v.id}
+                      title="Reimprimir factura"
+                      style={{
+                        padding: "4px 12px",
+                        borderRadius: 6,
+                        border: "1.5px solid #1e3a6e",
+                        background: reprinting === v.id ? "#e2e8f0" : "#fff",
+                        color: "#1e3a6e",
+                        cursor: reprinting === v.id ? "not-allowed" : "pointer",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      {reprinting === v.id ? "..." : "🖨 Reimprimir"}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
-        {ventas.length === 0 && (
+        {ventasFiltradas.length === 0 && (
           <div style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}>
             No hay facturas en este rango
           </div>

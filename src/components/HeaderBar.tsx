@@ -346,6 +346,22 @@ export default function HeaderBar({
               <button
                 onClick={() => {
                   setMenuOpen(false);
+                  onNavigate("HistorialVentas");
+                }}
+                className="btn-opaque"
+                style={{
+                  width: "100%",
+                  background: "transparent",
+                  color: "#0b1724",
+                  padding: "10px 12px",
+                  textAlign: "left",
+                }}
+              >
+                Historial de ventas
+              </button>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
                   setLogoutConfirmOpen(true);
                 }}
                 className="btn-opaque"

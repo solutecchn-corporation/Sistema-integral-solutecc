@@ -19,8 +19,8 @@ export function getFilteredMenuItems(): any[] {
         { id: "facturas", label: "Facturas (ventas)" },
         { id: "cotizaciones", label: "Cotizaciones (cotizaciones)" },
         { id: "anulacion_factura", label: "Anulación de factura" },
+        { id: "devoluciones_admin", label: "Devoluciones" },
         { id: "notas_credito", label: "Notas de crédito" },
-
         { id: "impuestos", label: "Impuestos" },
       ],
     },
@@ -63,6 +63,7 @@ export function getFilteredMenuItems(): any[] {
       children: [
         { id: "usuarios_web", label: "Usuarios web" },
         { id: "pedidos_web", label: "Pedidos web / Ecommerce" },
+        { id: "promociones_descuento", label: "Configuración de promociones" },
       ],
     },
     {

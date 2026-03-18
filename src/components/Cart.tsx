@@ -1,11 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { formatMoney } from "../lib/formatMoney";
+import supabase from "../lib/supabaseClient";
 
 type Producto = {
   id: string;
   sku?: string;
   nombre?: string;
   precio?: number;
+  categoria?: string;
 };
 
 type ItemCarrito = {
@@ -48,11 +50,49 @@ export default function Cart({
   const [showDescuentoModal, setShowDescuentoModal] = useState(false);
   const [itemParaDescuento, setItemParaDescuento] =
     useState<ItemCarrito | null>(null);
+  // Porcentajes configurados en BD y promociones activas hoy
+  const [pctOptions, setPctOptions] = useState<number[]>([0, 10, 15, 20]);
+  const [promoActiva, setPromoActiva] = useState<Record<string, number>>({}); // categoria -> porcentaje
 
   const handleAplicarPct = (id: any, pct: number) => {
     aplicarDescuento(id, pct);
     setItemParaDescuento(null);
   };
+
+  // Cargar porcentajes y promociones activas cuando se abre el modal
+  useEffect(() => {
+    if (!showDescuentoModal) return;
+    const today = new Date().toISOString().slice(0, 10);
+    Promise.all([
+      supabase
+        .from("descuentos_porcentajes")
+        .select("porcentaje")
+        .eq("activo", true)
+        .order("porcentaje"),
+      supabase
+        .from("promociones_descuento")
+        .select("categoria,porcentaje_descuento")
+        .eq("activo", true)
+        .lte("fecha_inicio", today)
+        .gte("fecha_fin", today),
+    ])
+      .then(([{ data: pcts }, { data: promos }]) => {
+        if (pcts && pcts.length > 0) {
+          const nums = [0, ...pcts.map((p: any) => Number(p.porcentaje))];
+          setPctOptions([...new Set(nums)].sort((a, b) => a - b));
+        }
+        if (promos && promos.length > 0) {
+          const map: Record<string, number> = {};
+          promos.forEach((p: any) => {
+            map[p.categoria] = p.porcentaje_descuento;
+          });
+          setPromoActiva(map);
+        } else {
+          setPromoActiva({});
+        }
+      })
+      .catch(() => {});
+  }, [showDescuentoModal]);
 
   return (
     <>
@@ -744,6 +784,67 @@ export default function Cart({
                             border: "1px dashed #fde68a",
                           }}
                         >
+                          {/* Promo activa para esta categoría */}
+                          {item.producto.categoria &&
+                            promoActiva[item.producto.categoria] != null && (
+                              <div
+                                style={{
+                                  marginBottom: 10,
+                                  padding: "7px 12px",
+                                  borderRadius: 8,
+                                  background: "#ecfdf5",
+                                  border: "1px solid #6ee7b7",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                }}
+                              >
+                                <span style={{ fontSize: 18 }}>✨</span>
+                                <div>
+                                  <span
+                                    style={{
+                                      fontWeight: 700,
+                                      fontSize: 12,
+                                      color: "#065f46",
+                                    }}
+                                  >
+                                    Promoción activa para "
+                                    {item.producto.categoria}":
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontWeight: 900,
+                                      fontSize: 14,
+                                      color: "#047857",
+                                      marginLeft: 6,
+                                    }}
+                                  >
+                                    {promoActiva[item.producto.categoria]}% OFF
+                                  </span>
+                                  <button
+                                    onClick={() =>
+                                      handleAplicarPct(
+                                        item.producto.id,
+                                        promoActiva[item.producto.categoria!]!,
+                                      )
+                                    }
+                                    style={{
+                                      marginLeft: 10,
+                                      padding: "3px 12px",
+                                      borderRadius: 6,
+                                      border: "none",
+                                      background: "#10b981",
+                                      color: "white",
+                                      fontWeight: 700,
+                                      fontSize: 11,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Aplicar
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           <div
                             style={{
                               fontSize: 12,
@@ -761,7 +862,7 @@ export default function Cart({
                               flexWrap: "wrap",
                             }}
                           >
-                            {[0, 10, 15, 20].map((p) => (
+                            {pctOptions.map((p) => (
                               <button
                                 key={p}
                                 onClick={() =>
