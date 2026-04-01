@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import supabase from "../lib/supabaseClient";
 import { generateFacturaHTML } from "../lib/generateFacturaHTML";
 import { formatMoney } from "../lib/formatMoney";
+import PrintOrEmailModal from "./PrintOrEmailModal";
+import EmailFacturaModal from "./EmailFacturaModal";
 
 interface HistorialVentasModalProps {
   open: boolean;
@@ -26,6 +28,10 @@ export default function HistorialVentasModal({
   const [ventas, setVentas] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [reprinting, setReprinting] = useState<number | null>(null);
+  const [pendingHtml, setPendingHtml] = useState<string | null>(null);
+  const [pendingVenta, setPendingVenta] = useState<any | null>(null);
+  const [showDelivery, setShowDelivery] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -68,31 +74,61 @@ export default function HistorialVentasModal({
   const handleReimprimir = async (venta: any) => {
     setReprinting(venta.id);
     try {
-      const { data: detalles } = await supabase
+      // 1. Traer detalles sin join (seguro siempre)
+      const { data: detalles, error: detErr2 } = await supabase
         .from("ventas_detalle")
         .select("*")
         .eq("venta_id", venta.id)
         .order("id", { ascending: true });
+
+      if (detErr2) console.error("Error ventas_detalle:", detErr2);
+
+      // 2. Para los que no tienen descripcion, buscar nombre en inventario
+      const sinDesc = (detalles || []).filter(
+        (d: any) => !d.descripcion && d.producto_id,
+      );
+      let inventarioMap: Record<string, string> = {};
+      if (sinDesc.length > 0) {
+        const ids = sinDesc.map((d: any) => d.producto_id);
+        const { data: invRows } = await supabase
+          .from("inventario")
+          .select("id, nombre")
+          .in("id", ids);
+        for (const row of invRows || []) {
+          inventarioMap[String(row.id)] = row.nombre || "";
+        }
+      }
 
       const { data: pagosData } = await supabase
         .from("pagos")
         .select("*")
         .eq("factura", venta.factura);
 
-      const carrito = (detalles || []).map((d: any) => ({
-        producto: {
-          nombre: d.producto_nombre || d.nombre || d.descripcion || "",
-        },
-        descripcion: d.descripcion || d.producto_nombre || "",
-        cantidad: d.cantidad,
-        precio_unitario: d.precio_unitario,
-        precio: d.precio_unitario,
-        subtotal: d.subtotal,
-        descuento: d.descuento || 0,
-        exento: d.exento,
-        aplica_impuesto_18: d.aplica_impuesto_18,
-        aplica_impuesto_turistico: d.aplica_impuesto_turistico,
-      }));
+      const carrito = (detalles || []).map((d: any) => {
+        const nombre =
+          d.descripcion ||
+          inventarioMap[String(d.producto_id)] ||
+          d.nombre ||
+          "";
+        return {
+          producto: {
+            nombre,
+            precio: d.precio_unitario,
+            precio_unitario: d.precio_unitario,
+            exento: d.exento,
+            aplica_impuesto_18: d.aplica_impuesto_18,
+            aplica_impuesto_turistico: d.aplica_impuesto_turistico,
+          },
+          cantidad: d.cantidad,
+          precio_unitario: d.precio_unitario,
+          precio: d.precio_unitario,
+          subtotal: d.subtotal,
+          descuento: d.descuento || 0,
+          exento: d.exento,
+          aplica_impuesto_18: d.aplica_impuesto_18,
+          aplica_impuesto_turistico: d.aplica_impuesto_turistico,
+        };
+      });
 
       let efectivo = 0,
         tarjeta = 0,
@@ -114,6 +150,7 @@ export default function HistorialVentasModal({
           fechaLimiteEmision: venta.fecha_limite_emision,
           cliente: venta.nombre_cliente || "Consumidor Final",
           rtn: venta.rtn,
+          direccionCliente: venta.direccion_cliente || "",
         },
         "factura",
         {
@@ -134,13 +171,9 @@ export default function HistorialVentasModal({
         },
       );
 
-      const win = window.open("", "_blank");
-      if (win) {
-        win.document.write(html);
-        win.document.close();
-        win.focus();
-        setTimeout(() => win.print(), 600);
-      }
+      setPendingHtml(html);
+      setPendingVenta(venta);
+      setShowDelivery(true);
     } catch (err) {
       console.error("Error al reimprimir:", err);
       alert("No se pudo reimprimir la factura.");
@@ -149,319 +182,371 @@ export default function HistorialVentasModal({
     }
   };
 
+  const doPrint = () => {
+    if (!pendingHtml) return;
+    setShowDelivery(false);
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(pendingHtml);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 600);
+    }
+  };
+
+  const doEmail = () => {
+    setShowDelivery(false);
+    setShowEmail(true);
+  };
+
   if (!open) return null;
 
   const totalVentas = ventas.reduce((s, v) => s + Number(v.total || 0), 0);
 
   return (
-    <div
-      className="pv-backdrop"
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.55)",
-        zIndex: 11000,
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        padding: "40px 16px 16px",
-        overflowY: "auto",
-      }}
-      onClick={onClose}
-    >
+    <>
+      <PrintOrEmailModal
+        open={showDelivery}
+        onClose={() => setShowDelivery(false)}
+        onPrint={doPrint}
+        onEmail={doEmail}
+        docType="factura"
+      />
+      <EmailFacturaModal
+        open={showEmail}
+        onClose={() => setShowEmail(false)}
+        initialEmail={pendingVenta?.email_cliente || ""}
+        htmlContent={pendingHtml || ""}
+        facturaNumero={pendingVenta?.factura || ""}
+        docType="factura"
+      />
       <div
-        onClick={(e) => e.stopPropagation()}
+        className="pv-backdrop"
         style={{
-          background: "white",
-          borderRadius: 12,
-          width: "100%",
-          maxWidth: 900,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.55)",
+          zIndex: 11000,
           display: "flex",
-          flexDirection: "column",
-          maxHeight: "calc(100vh - 80px)",
+          alignItems: "flex-start",
+          justifyContent: "center",
+          padding: "40px 16px 16px",
+          overflowY: "auto",
         }}
+        onClick={onClose}
       >
-        {/* Encabezado */}
         <div
+          onClick={(e) => e.stopPropagation()}
           style={{
-            padding: "18px 24px",
-            borderBottom: "1px solid #e5e7eb",
+            background: "white",
+            borderRadius: 12,
+            width: "100%",
+            maxWidth: 900,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexShrink: 0,
+            flexDirection: "column",
+            maxHeight: "calc(100vh - 80px)",
           }}
         >
-          <div>
-            <h2
-              style={{
-                margin: 0,
-                fontSize: "1.15rem",
-                fontWeight: 700,
-                color: "#0b1724",
-              }}
-            >
-              Historial de ventas
-            </h2>
-            {caiInfo?.cai && (
-              <p
-                style={{
-                  margin: "2px 0 0",
-                  fontSize: "0.78rem",
-                  color: "#6b7280",
-                }}
-              >
-                CAI:{" "}
-                <span style={{ fontFamily: "monospace", color: "#1e40af" }}>
-                  {caiInfo.cai}
-                </span>
-                {userName ? ` · Cajero: ${userName}` : ""}
-              </p>
-            )}
-            {sessionStart && (
-              <p
-                style={{
-                  margin: "2px 0 0",
-                  fontSize: "0.78rem",
-                  color: "#059669",
-                }}
-              >
-                ⏰ Apertura de caja:{" "}
-                {new Date(sessionStart).toLocaleString("es-HN", {
-                  dateStyle: "short",
-                  timeStyle: "short",
-                })}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "1.4rem",
-              color: "#6b7280",
-              lineHeight: 1,
-              padding: "0 4px",
-            }}
-            aria-label="Cerrar"
-          >
-            ×
-          </button>
-        </div>
-
-        {/* Resumen */}
-        <div
-          style={{
-            padding: "12px 24px",
-            borderBottom: "1px solid #f3f4f6",
-            background: "#f8fafc",
-            display: "flex",
-            gap: 24,
-            flexShrink: 0,
-          }}
-        >
-          <div>
-            <span style={{ fontSize: "0.78rem", color: "#6b7280" }}>
-              Facturas pagadas
-            </span>
-            <div
-              style={{ fontWeight: 700, fontSize: "1.1rem", color: "#166534" }}
-            >
-              {ventas.length}
-            </div>
-          </div>
-          <div>
-            <span style={{ fontSize: "0.78rem", color: "#6b7280" }}>
-              Total recaudado
-            </span>
-            <div
-              style={{ fontWeight: 700, fontSize: "1.1rem", color: "#0b1724" }}
-            >
-              {formatMoney(totalVentas)}
-            </div>
-          </div>
+          {/* Encabezado */}
           <div
             style={{
-              marginLeft: "auto",
+              padding: "18px 24px",
+              borderBottom: "1px solid #e5e7eb",
               display: "flex",
               alignItems: "center",
+              justifyContent: "space-between",
+              flexShrink: 0,
+            }}
+          >
+            <div>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: "1.15rem",
+                  fontWeight: 700,
+                  color: "#0b1724",
+                }}
+              >
+                Historial de ventas
+              </h2>
+              {caiInfo?.cai && (
+                <p
+                  style={{
+                    margin: "2px 0 0",
+                    fontSize: "0.78rem",
+                    color: "#6b7280",
+                  }}
+                >
+                  CAI:{" "}
+                  <span style={{ fontFamily: "monospace", color: "#1e40af" }}>
+                    {caiInfo.cai}
+                  </span>
+                  {userName ? ` · Cajero: ${userName}` : ""}
+                </p>
+              )}
+              {sessionStart && (
+                <p
+                  style={{
+                    margin: "2px 0 0",
+                    fontSize: "0.78rem",
+                    color: "#059669",
+                  }}
+                >
+                  ⏰ Apertura de caja:{" "}
+                  {new Date(sessionStart).toLocaleString("es-HN", {
+                    dateStyle: "short",
+                    timeStyle: "short",
+                  })}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={onClose}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "1.4rem",
+                color: "#6b7280",
+                lineHeight: 1,
+                padding: "0 4px",
+              }}
+              aria-label="Cerrar"
+            >
+              ×
+            </button>
+          </div>
+
+          {/* Resumen */}
+          <div
+            style={{
+              padding: "12px 24px",
+              borderBottom: "1px solid #f3f4f6",
+              background: "#f8fafc",
+              display: "flex",
+              gap: 24,
+              flexShrink: 0,
+            }}
+          >
+            <div>
+              <span style={{ fontSize: "0.78rem", color: "#6b7280" }}>
+                Facturas pagadas
+              </span>
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: "1.1rem",
+                  color: "#166534",
+                }}
+              >
+                {ventas.length}
+              </div>
+            </div>
+            <div>
+              <span style={{ fontSize: "0.78rem", color: "#6b7280" }}>
+                Total recaudado
+              </span>
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: "1.1rem",
+                  color: "#0b1724",
+                }}
+              >
+                {formatMoney(totalVentas)}
+              </div>
+            </div>
+            <div
+              style={{
+                marginLeft: "auto",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <button
+                onClick={fetchHistorial}
+                style={{
+                  background: "#e0e7ff",
+                  color: "#3730a3",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "6px 14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontSize: "0.82rem",
+                }}
+              >
+                ↻ Actualizar
+              </button>
+            </div>
+          </div>
+
+          {/* Tabla */}
+          <div style={{ overflowY: "auto", flex: 1 }}>
+            {loading ? (
+              <div
+                style={{ padding: 32, textAlign: "center", color: "#6b7280" }}
+              >
+                Cargando ventas…
+              </div>
+            ) : ventas.length === 0 ? (
+              <div
+                style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}
+              >
+                No se encontraron ventas pagadas para esta sesión.
+              </div>
+            ) : (
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontSize: "0.85rem",
+                }}
+              >
+                <thead>
+                  <tr
+                    style={{
+                      background: "#f1f5f9",
+                      position: "sticky",
+                      top: 0,
+                    }}
+                  >
+                    <th style={thStyle}>Factura</th>
+                    <th style={thStyle}>Fecha</th>
+                    <th style={thStyle}>Cliente</th>
+                    <th style={{ ...thStyle, textAlign: "right" }}>Total</th>
+                    <th style={thStyle}>Estado</th>
+                    <th style={{ ...thStyle, textAlign: "center" }}>
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ventas.map((v, idx) => {
+                    const estadoLow = String(v.estado || "").toLowerCase();
+                    const chip = ESTADO_COLORS[estadoLow] || {
+                      bg: "#f3f4f6",
+                      color: "#374151",
+                    };
+                    const fecha = v.fecha_venta
+                      ? new Date(v.fecha_venta).toLocaleString("es-HN", {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        })
+                      : "—";
+                    return (
+                      <tr
+                        key={v.id}
+                        style={{
+                          background: idx % 2 === 0 ? "white" : "#f9fafb",
+                          borderBottom: "1px solid #f3f4f6",
+                        }}
+                      >
+                        <td
+                          style={{
+                            ...tdStyle,
+                            fontFamily: "monospace",
+                            fontSize: "0.8rem",
+                          }}
+                        >
+                          {v.factura || "—"}
+                        </td>
+                        <td style={tdStyle}>{fecha}</td>
+                        <td style={tdStyle}>
+                          <div style={{ fontWeight: 500 }}>
+                            {v.nombre_cliente || "Consumidor Final"}
+                          </div>
+                          {v.rtn && (
+                            <div
+                              style={{ fontSize: "0.75rem", color: "#6b7280" }}
+                            >
+                              RTN: {v.rtn}
+                            </div>
+                          )}
+                        </td>
+                        <td
+                          style={{
+                            ...tdStyle,
+                            textAlign: "right",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {formatMoney(Number(v.total || 0))}
+                        </td>
+                        <td style={tdStyle}>
+                          <span
+                            style={{
+                              background: chip.bg,
+                              color: chip.color,
+                              borderRadius: 12,
+                              padding: "2px 10px",
+                              fontSize: "0.75rem",
+                              fontWeight: 600,
+                              textTransform: "capitalize",
+                            }}
+                          >
+                            {v.estado || "—"}
+                          </span>
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: "center" }}>
+                          <button
+                            onClick={() => handleReimprimir(v)}
+                            disabled={reprinting === v.id}
+                            style={{
+                              background:
+                                reprinting === v.id ? "#e5e7eb" : "#1e40af",
+                              color: reprinting === v.id ? "#9ca3af" : "white",
+                              border: "none",
+                              borderRadius: 6,
+                              padding: "5px 12px",
+                              cursor:
+                                reprinting === v.id ? "not-allowed" : "pointer",
+                              fontWeight: 600,
+                              fontSize: "0.78rem",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {reprinting === v.id
+                              ? "Imprimiendo…"
+                              : "🖨 Reimprimir"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Pie */}
+          <div
+            style={{
+              padding: "12px 24px",
+              borderTop: "1px solid #e5e7eb",
+              textAlign: "right",
+              flexShrink: 0,
             }}
           >
             <button
-              onClick={fetchHistorial}
+              onClick={onClose}
               style={{
-                background: "#e0e7ff",
-                color: "#3730a3",
+                background: "#f3f4f6",
                 border: "none",
-                borderRadius: 6,
-                padding: "6px 14px",
-                fontWeight: 600,
+                borderRadius: 8,
+                padding: "8px 20px",
                 cursor: "pointer",
-                fontSize: "0.82rem",
+                fontWeight: 600,
+                color: "#374151",
               }}
             >
-              ↻ Actualizar
+              Cerrar
             </button>
           </div>
         </div>
-
-        {/* Tabla */}
-        <div style={{ overflowY: "auto", flex: 1 }}>
-          {loading ? (
-            <div style={{ padding: 32, textAlign: "center", color: "#6b7280" }}>
-              Cargando ventas…
-            </div>
-          ) : ventas.length === 0 ? (
-            <div style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}>
-              No se encontraron ventas pagadas para esta sesión.
-            </div>
-          ) : (
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: "0.85rem",
-              }}
-            >
-              <thead>
-                <tr
-                  style={{ background: "#f1f5f9", position: "sticky", top: 0 }}
-                >
-                  <th style={thStyle}>Factura</th>
-                  <th style={thStyle}>Fecha</th>
-                  <th style={thStyle}>Cliente</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>Total</th>
-                  <th style={thStyle}>Estado</th>
-                  <th style={{ ...thStyle, textAlign: "center" }}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ventas.map((v, idx) => {
-                  const estadoLow = String(v.estado || "").toLowerCase();
-                  const chip = ESTADO_COLORS[estadoLow] || {
-                    bg: "#f3f4f6",
-                    color: "#374151",
-                  };
-                  const fecha = v.fecha_venta
-                    ? new Date(v.fecha_venta).toLocaleString("es-HN", {
-                        dateStyle: "short",
-                        timeStyle: "short",
-                      })
-                    : "—";
-                  return (
-                    <tr
-                      key={v.id}
-                      style={{
-                        background: idx % 2 === 0 ? "white" : "#f9fafb",
-                        borderBottom: "1px solid #f3f4f6",
-                      }}
-                    >
-                      <td
-                        style={{
-                          ...tdStyle,
-                          fontFamily: "monospace",
-                          fontSize: "0.8rem",
-                        }}
-                      >
-                        {v.factura || "—"}
-                      </td>
-                      <td style={tdStyle}>{fecha}</td>
-                      <td style={tdStyle}>
-                        <div style={{ fontWeight: 500 }}>
-                          {v.nombre_cliente || "Consumidor Final"}
-                        </div>
-                        {v.rtn && (
-                          <div
-                            style={{ fontSize: "0.75rem", color: "#6b7280" }}
-                          >
-                            RTN: {v.rtn}
-                          </div>
-                        )}
-                      </td>
-                      <td
-                        style={{
-                          ...tdStyle,
-                          textAlign: "right",
-                          fontWeight: 600,
-                        }}
-                      >
-                        {formatMoney(Number(v.total || 0))}
-                      </td>
-                      <td style={tdStyle}>
-                        <span
-                          style={{
-                            background: chip.bg,
-                            color: chip.color,
-                            borderRadius: 12,
-                            padding: "2px 10px",
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                            textTransform: "capitalize",
-                          }}
-                        >
-                          {v.estado || "—"}
-                        </span>
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: "center" }}>
-                        <button
-                          onClick={() => handleReimprimir(v)}
-                          disabled={reprinting === v.id}
-                          style={{
-                            background:
-                              reprinting === v.id ? "#e5e7eb" : "#1e40af",
-                            color: reprinting === v.id ? "#9ca3af" : "white",
-                            border: "none",
-                            borderRadius: 6,
-                            padding: "5px 12px",
-                            cursor:
-                              reprinting === v.id ? "not-allowed" : "pointer",
-                            fontWeight: 600,
-                            fontSize: "0.78rem",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {reprinting === v.id
-                            ? "Imprimiendo…"
-                            : "🖨 Reimprimir"}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* Pie */}
-        <div
-          style={{
-            padding: "12px 24px",
-            borderTop: "1px solid #e5e7eb",
-            textAlign: "right",
-            flexShrink: 0,
-          }}
-        >
-          <button
-            onClick={onClose}
-            style={{
-              background: "#f3f4f6",
-              border: "none",
-              borderRadius: 8,
-              padding: "8px 20px",
-              cursor: "pointer",
-              fontWeight: 600,
-              color: "#374151",
-            }}
-          >
-            Cerrar
-          </button>
-        </div>
       </div>
-    </div>
+    </>
   );
 }
 

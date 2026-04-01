@@ -34,6 +34,7 @@ type Producto = {
   id: string;
   sku?: string;
   nombre?: string;
+  descripcion?: string;
   precio?: number;
   categoria?: string;
   exento?: boolean;
@@ -1388,7 +1389,10 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         venta_id: ventaId,
         factura: facturaNum,
         producto_id: esTemp ? null : it.producto.id,
-        descripcion: esTemp ? it.producto.nombre || "Servicio" : null,
+        descripcion:
+          it.producto.nombre ||
+          it.producto.descripcion ||
+          (esTemp ? "Servicio" : null),
         cantidad: qty,
         precio_unitario: precioEfectivo,
         subtotal: subtotalItem,

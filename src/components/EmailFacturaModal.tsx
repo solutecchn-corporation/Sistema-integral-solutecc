@@ -60,10 +60,10 @@ export default function EmailFacturaModal({
         to: email.trim(),
         subject,
         htmlBody: htmlContent,   // fallback siempre presente
+        type: docType,           // siempre enviar para que el PDF tenga el nombre correcto
       }
       if (facturaNumero) {
         bodyObj.facturaNumero = facturaNumero
-        bodyObj.type = docType
       }
       const body = JSON.stringify(bodyObj)
       const resp = await fetch(gasUrl, {

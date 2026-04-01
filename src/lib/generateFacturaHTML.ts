@@ -786,7 +786,16 @@ export async function generateFacturaHTML(
 
     /* Celdas de información compactas */
     .info-row td { height: 18px; font-size: 11px; }
-    .product-th { height: 18px; font-size: 9px; font-weight: bold; text-align: center; }
+    .product-th {
+      background: #ffffff00;
+      color: #000000;
+      height: 16px;
+      font-size: 9px;
+      font-weight: 800;
+      text-align: center;
+      padding: 4px;
+      border: 1px solid #1e3a5f;
+    }
 
     .grand-total { text-align: right; font-size: 11px; font-weight: bold; padding: 5px 6px; }
     .letras-total { font-size: 14px; padding: 6px; }
