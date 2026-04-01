@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { formatMoney } from "../../lib/formatMoney";
 import supabase from "../../lib/supabaseClient";
 import { generateFacturaHTML } from "../../lib/generateFacturaHTML";
+import PrintOrEmailModal from "../../components/PrintOrEmailModal";
+import EmailFacturaModal from "../../components/EmailFacturaModal";
 
 type EstadoFiltro = "todos" | "pagada" | "anulada" | "devolucion";
 
@@ -29,6 +31,10 @@ export default function FacturasView() {
   const [loading, setLoading] = useState(false);
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>("todos");
   const [reprinting, setReprinting] = useState<number | null>(null);
+  const [pendingHtml, setPendingHtml] = useState<string | null>(null);
+  const [pendingVenta, setPendingVenta] = useState<any | null>(null);
+  const [showDelivery, setShowDelivery] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -84,31 +90,61 @@ export default function FacturasView() {
   const handleReimprimir = async (venta: any) => {
     setReprinting(venta.id);
     try {
-      const { data: detalles } = await supabase
+      // 1. Traer detalles sin join (seguro siempre)
+      const { data: detalles, error: detErr2 } = await supabase
         .from("ventas_detalle")
         .select("*")
         .eq("venta_id", venta.id)
         .order("id", { ascending: true });
+
+      if (detErr2) console.error("Error ventas_detalle:", detErr2);
+
+      // 2. Para los que no tienen descripcion, buscar nombre en inventario
+      const sinDesc = (detalles || []).filter(
+        (d: any) => !d.descripcion && d.producto_id,
+      );
+      let inventarioMap: Record<string, string> = {};
+      if (sinDesc.length > 0) {
+        const ids = sinDesc.map((d: any) => d.producto_id);
+        const { data: invRows } = await supabase
+          .from("inventario")
+          .select("id, nombre")
+          .in("id", ids);
+        for (const row of invRows || []) {
+          inventarioMap[String(row.id)] = row.nombre || "";
+        }
+      }
 
       const { data: pagosData } = await supabase
         .from("pagos")
         .select("*")
         .eq("factura", venta.factura);
 
-      const carrito = (detalles || []).map((d: any) => ({
-        producto: {
-          nombre: d.producto_nombre || d.nombre || d.descripcion || "",
-        },
-        descripcion: d.descripcion || d.producto_nombre || "",
-        cantidad: d.cantidad,
-        precio_unitario: d.precio_unitario,
-        precio: d.precio_unitario,
-        subtotal: d.subtotal,
-        descuento: d.descuento || 0,
-        exento: d.exento,
-        aplica_impuesto_18: d.aplica_impuesto_18,
-        aplica_impuesto_turistico: d.aplica_impuesto_turistico,
-      }));
+      const carrito = (detalles || []).map((d: any) => {
+        const nombre =
+          d.descripcion ||
+          inventarioMap[String(d.producto_id)] ||
+          d.nombre ||
+          "";
+        return {
+          producto: {
+            nombre,
+            precio: d.precio_unitario,
+            precio_unitario: d.precio_unitario,
+            exento: d.exento,
+            aplica_impuesto_18: d.aplica_impuesto_18,
+            aplica_impuesto_turistico: d.aplica_impuesto_turistico,
+          },
+          cantidad: d.cantidad,
+          precio_unitario: d.precio_unitario,
+          precio: d.precio_unitario,
+          subtotal: d.subtotal,
+          descuento: d.descuento || 0,
+          exento: d.exento,
+          aplica_impuesto_18: d.aplica_impuesto_18,
+          aplica_impuesto_turistico: d.aplica_impuesto_turistico,
+        };
+      });
 
       let efectivo = 0,
         tarjeta = 0,
@@ -130,6 +166,7 @@ export default function FacturasView() {
           fechaLimiteEmision: venta.fecha_limite_emision,
           cliente: venta.nombre_cliente || "Consumidor Final",
           rtn: venta.rtn,
+          direccionCliente: venta.direccion_cliente || "",
         },
         "factura",
         {
@@ -150,19 +187,32 @@ export default function FacturasView() {
         },
       );
 
-      const win = window.open("", "_blank");
-      if (win) {
-        win.document.write(html);
-        win.document.close();
-        win.focus();
-        setTimeout(() => win.print(), 600);
-      }
+      setPendingHtml(html);
+      setPendingVenta(venta);
+      setShowDelivery(true);
     } catch (err) {
       console.error("Error al reimprimir:", err);
       alert("No se pudo reimprimir la factura.");
     } finally {
       setReprinting(null);
     }
+  };
+
+  const doPrint = () => {
+    if (!pendingHtml) return;
+    setShowDelivery(false);
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(pendingHtml);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 600);
+    }
+  };
+
+  const doEmail = () => {
+    setShowDelivery(false);
+    setShowEmail(true);
   };
 
   const FILTROS: { label: string; value: EstadoFiltro }[] = [
@@ -173,6 +223,21 @@ export default function FacturasView() {
   ];
 
   return (
+    <>
+      <PrintOrEmailModal
+        open={showDelivery}
+        onClose={() => setShowDelivery(false)}
+        onPrint={doPrint}
+        onEmail={doEmail}
+        docType="factura"
+      />
+      <EmailFacturaModal
+        open={showEmail}
+        onClose={() => setShowEmail(false)}
+        initialEmail={pendingVenta?.email_cliente || ""}
+        htmlContent={pendingHtml || ""}
+        facturaNumero={pendingVenta?.factura || ""}
+      />
     <div style={{ padding: 18 }}>
       <h2 style={{ marginTop: 0 }}>Facturas (ventas)</h2>
 
@@ -353,5 +418,6 @@ export default function FacturasView() {
         )}
       </div>
     </div>
+    </>
   );
 }
