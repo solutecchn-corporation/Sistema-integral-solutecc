@@ -1,0 +1,51 @@
+# ─── Netlify configuration ────────────────────────────────────────────────────
+# Todas las variables sensibles (VITE_SUPABASE_ANON_KEY, etc.) deben
+# configurarse en el panel de Netlify → Site configuration → Environment variables
+# con los mismos nombres listados abajo. ¡NO colocar valores reales aquí!
+
+[build]
+  command         = "npm run build"
+  publish         = "dist"
+  node_bundler    = "esbuild"
+
+[build.environment]
+  NODE_VERSION = "20"
+  # Las siguientes variables se definen en el panel de Netlify:
+  # VITE_SUPABASE_URL
+  # VITE_SUPABASE_ANON_KEY
+  # VITE_SUPABASE_STORAGE_BUCKET
+  # VITE_GAS_EMAIL_URL
+
+# ─── SPA fallback: todas las rutas apuntan a index.html ───────────────────────
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+
+# ─── Caché larga para assets con hash ─────────────────────────────────────────
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# ─── Service Worker: sin caché para siempre recibir la versión más reciente ───
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/pwabuilder-sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# ─── manifest y version.json: sin caché ───────────────────────────────────────
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/version.json"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
