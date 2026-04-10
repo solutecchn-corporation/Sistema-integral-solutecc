@@ -1,5 +1,5 @@
 {
-  "version": "1.2.5",
-  "buildDate": "2026-02-05T20:00:00.000Z",
-  "changelog": "Actualización completa: Rebrand a ViSonixRo, manifest PWA optimizado para empaquetado Windows/Android, mejoras en UX y configuración para instalación como app nativa"
+  "version": "1.2.6",
+  "buildDate": "2026-03-07T00:00:00.000Z",
+  "changelog": "Fix: vercel.json SPA routing, service worker cache invalidation tras deploy"
 }
