@@ -809,8 +809,6 @@ export async function generateFacturaHTML(
 <body>
 <div class="page-wrap">
   ${buildFacturaCopia("ORIGINAL: Cliente")}
-  <hr class="separador"/>
-  ${buildFacturaCopia("COPIA: Emisor")}
 </div>
 </body>
 </html>`;

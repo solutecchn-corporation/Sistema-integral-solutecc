@@ -94,6 +94,10 @@ function doPost(e) {
 
       // Modificamos directamente la etiqueta de la imagen para que Drive no la pueda ignorar
       htmlBody = htmlBody.replace(/<img/gi, '<img width="120" height="auto" ');
+
+      // ── ELIMINAR SEGUNDA COPIA: asegurar que el correo/PDF solo muestre UNA factura ──
+      // El separador (línea de corte) y el segundo bloque .copia se eliminan si existen
+      htmlBody = stripDuplicateCopia(htmlBody);
     }
 
     // ── 2. Solo si el frontend no mandó HTML, reconstruimos (Fallback)
@@ -170,6 +174,27 @@ function stripBase64Images(html) {
     /src=["']data:[^"']{1,2000000}["']/gi,
     'src="" alt="Logo"',
   );
+}
+
+// ─── Eliminar separador y segunda copia de la factura (garantiza solo 1 copia) ─
+function stripDuplicateCopia(html) {
+  if (!html) return html;
+  // Eliminar el separador de tijera (<hr class="separador">) y todo lo que venga después
+  // hasta el cierre del div.page-wrap, dejando solo la primera copia
+  var sepIdx = html.search(/<hr[^>]*class=["'][^"']*separador[^"']*["'][^>]*>/i);
+  if (sepIdx === -1) {
+    // También intentar sin class (por si viene en diferente orden)
+    sepIdx = html.search(/<hr[^>]*separador[^>]*>/i);
+  }
+  if (sepIdx !== -1) {
+    // Buscar el cierre del contenedor principal después del separador
+    var closeWrap = html.indexOf("</div>", sepIdx);
+    if (closeWrap !== -1) {
+      // Reemplazar desde el separador hasta (sin incluir) el cierre del contenedor
+      html = html.substring(0, sepIdx) + html.substring(closeWrap);
+    }
+  }
+  return html;
 }
 
 // ─── Lógica de negocio (Fallback original intocable) ──────────────────────────
