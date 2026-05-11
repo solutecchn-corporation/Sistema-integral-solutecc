@@ -332,6 +332,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const [pendingHtmlPrint, setPendingHtmlPrint] = useState("");
   const [pendingHtmlEmail, setPendingHtmlEmail] = useState("");
   const [pendingEmailHint, setPendingEmailHint] = useState("");
+  const [pendingTransactionId, setPendingTransactionId] = useState("");
   const [pendingFacturaNumero, setPendingFacturaNumero] = useState("");
   const [pendingDocType, setPendingDocType] = useState<
     "factura" | "cotizacion"
@@ -838,6 +839,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     afterDelivery: () => Promise<void>,
     emailHint: string,
     docType: "factura" | "cotizacion",
+    transactionId: string = "",
     facturaNumero: string = "",
   ) => {
     setPendingHtmlPrint(htmlPrint);
@@ -845,6 +847,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     setPendingAfterDelivery(() => afterDelivery);
     setPendingEmailHint(emailHint);
     setPendingDocType(docType);
+    setPendingTransactionId(transactionId);
     setPendingFacturaNumero(facturaNumero);
     setShowDeliveryModal(true);
   };
@@ -1011,6 +1014,11 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             optsForGenerator.__facturaNum = ventaResult.facturaNum;
           } catch (e) {}
         }
+        if (ventaResult?.ventaId) {
+          try {
+            optsForGenerator.__transactionId = String(ventaResult.ventaId);
+          } catch (e) {}
+        }
       } catch (e) {
         console.warn("Error preparando venta antes de imprimir:", e);
         const errorMsg =
@@ -1060,12 +1068,15 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
 
     // Mostrar modal Imprimir / Enviar por Correo
     const facturaNumParaModal = (optsForGenerator as any).__facturaNum || "";
+    const transactionIdParaModal =
+      (optsForGenerator as any).__transactionId || "";
     await openDeliveryChoice(
       html,
       htmlForEmail,
       afterDelivery,
       clienteCorreo,
       printingMode as "factura" | "cotizacion",
+      transactionIdParaModal,
       facturaNumParaModal,
     );
   };
@@ -2129,14 +2140,21 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             (window as any).__lastFacturaNumCN = cnVentaResult.facturaNum;
           } catch (e) {}
         }
+        if (cnVentaResult?.ventaId) {
+          try {
+            (window as any).__lastVentaIdCN = String(cnVentaResult.ventaId);
+          } catch (e) {}
+        }
       } catch (e) {
         console.warn("Error insertando venta en flujo cliente normal:", e);
       }
     }
 
     // Generar HTML de copia única (para correo)
+    const ventaIdCN: string = (window as any).__lastVentaIdCN || "";
     const facturaNumCN: string = (window as any).__lastFacturaNumCN || "";
     try {
+      delete (window as any).__lastVentaIdCN;
       delete (window as any).__lastFacturaNumCN;
     } catch (e) {}
     const optsClienteNormal = {
@@ -2181,6 +2199,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       afterDeliveryCN,
       clienteCorreo,
       printingMode as "factura" | "cotizacion",
+      ventaIdCN,
       facturaNumCN,
     );
   };
@@ -3439,6 +3458,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           docType={pendingDocType}
           initialEmail={pendingEmailHint}
           htmlContent={pendingHtmlEmail}
+          transactionId={pendingTransactionId}
           facturaNumero={pendingFacturaNumero}
           onClose={() => setShowEmailModal(false)}
           onAfterSend={async () => {

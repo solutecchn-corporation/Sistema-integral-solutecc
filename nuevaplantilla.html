@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cotización IPSA</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        /* Header Section */
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            color: #004b87;
+            display: flex;
+            align-items: center;
+        }
+        .logo span {
+            font-size: 24px;
+            color: #555;
+            margin-left: 5px;
+        }
+        .company-info {
+            flex-grow: 1;
+            padding-left: 20px;
+        }
+        .company-name {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .contact-info {
+            display: flex;
+            gap: 20px;
+            font-size: 10px;
+        }
+        .doc-info {
+            text-align: right;
+            font-size: 10px;
+        }
+        .cotizacion-box {
+            border: 2px solid #000;
+            padding: 5px 15px;
+            text-align: center;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .cotizacion-box .title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .cotizacion-box .number {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 14px;
+            border-top: 1px solid #000;
+            padding-top: 2px;
+        }
+
+        /* Customer Section */
+        .customer-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        .customer-left table, .customer-right table {
+            border-collapse: collapse;
+        }
+        .customer-left td, .customer-right td {
+            padding: 2px 5px;
+            vertical-align: top;
+        }
+        .label {
+            font-weight: bold;
+            width: 80px;
+        }
+
+        /* Balance Section */
+        .balance-section {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding: 0 10px;
+        }
+        
+        .disclaimer {
+            font-size: 9px;
+            border-top: 1px solid #000;
+            border-bottom: 1px solid #000;
+            padding: 5px 0;
+            margin-bottom: 10px;
+            text-align: justify;
+        }
+
+        /* Main Table */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .items-table th {
+            border-top: 1px solid #000;
+            border-bottom: 1px solid #000;
+            text-align: left;
+            padding: 5px;
+        }
+        .items-table td {
+            padding: 5px;
+        }
+        .text-right {
+            text-align: right !important;
+        }
+        .text-center {
+            text-align: center !important;
+        }
+
+        /* Footer Notes */
+        .footer-notes {
+            font-size: 8px;
+            text-align: justify;
+            margin-bottom: 20px;
+        }
+        .footer-notes strong {
+            font-size: 10px;
+        }
+
+        /* Bottom Section */
+        .bottom-section {
+            border: 1px solid #000;
+            display: flex;
+            justify-content: space-between;
+        }
+        .bottom-left {
+            width: 50%;
+            padding: 10px;
+            font-size: 10px;
+        }
+        .bottom-left p {
+            margin: 3px 0;
+        }
+        .signatures {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        .sign-box {
+            border: 1px solid #000;
+            height: 20px;
+            width: 150px;
+            text-align: center;
+            padding-top: 5px;
+            font-size: 9px;
+        }
+        .bottom-middle {
+            width: 15%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 10px;
+        }
+        .cert-circles {
+            display: flex;
+            gap: 5px;
+        }
+        .circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #0066cc;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .circle-dark {
+            background-color: #003399;
+        }
+        .cert-text {
+            font-size: 8px;
+            margin-top: 5px;
+            text-align: center;
+        }
+        .bottom-right {
+            width: 35%;
+            border-left: 1px solid #000;
+        }
+        .totals-table {
+            width: 100%;
+            border-collapse: collapse;
+            height: 100%;
+        }
+        .totals-table td {
+            padding: 8px;
+        }
+        .totals-table tr:last-child {
+            border-top: 1px solid #000;
+            font-weight: bold;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-top">
+        <div class="logo">
+            IPSA <span>50</span>
+        </div>
+        <div class="company-info">
+            <div class="company-name">INDUSTRIAS PANAVISION S.A. DE C.V.</div>
+            <div>Bo. San Fernando, 1ra Cll, 13Ave SE</div>
+            <div>350 Metros Salida a La Lima, San Pedro Sula, Honduras, C.A.</div>
+            <div>TEL: 2527-4772</div>
+            <div>FAX: 2557-0203</div>
+        </div>
+        <div class="contact-info">
+            <div>RTN: 05019995136860</div>
+            <div>
+                WEB: www.ipsa.hn<br>
+                EMAIL: info@ipsa.hn
+            </div>
+        </div>
+        <div class="doc-info">
+            <div>CODIGO: MVR-14</div>
+            <div>VERSION: 09</div>
+            <div class="cotizacion-box">
+                <div class="title">COTIZACION</div>
+                <div class="number">
+                    <span>No.</span>
+                    <span>10247393</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="customer-section">
+        <div class="customer-left">
+            <table>
+                <tr>
+                    <td class="label">Código:</td>
+                    <td>C3S2094</td>
+                </tr>
+                <tr>
+                    <td class="label">Cliente:</td>
+                    <td><strong>SOLUCIONES TECNICAS CASTRO</strong></td>
+                </tr>
+                <tr>
+                    <td class="label">Dirección:</td>
+                    <td>COL. MONTE PLACENTERO CALLE PRINCIPAL FRENTE ARECO</td>
+                </tr>
+                <tr>
+                    <td class="label">Ciudad:</td>
+                    <td></td>
+                </tr>
+            </table>
+        </div>
+        <div class="customer-right">
+            <table>
+                <tr>
+                    <td class="label">Fecha:</td>
+                    <td>10/11/2025</td>
+                </tr>
+                <tr>
+                    <td class="label">Teléfono:</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td class="label">Fax:</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td class="label">O/C:</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td class="label">Hora:</td>
+                    <td>04:08PM</td>
+                </tr>
+                <tr>
+                    <td class="label">DD</td>
+                    <td></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="balance-section">
+        <div>Saldo: <span style="font-weight:normal; margin-left: 20px;">0.00</span></div>
+        <div>Saldo Vencido:</div>
+        <div>Fecha de Impresion: <span style="font-weight:normal; margin-left: 10px;">10/11/2025 16:16:07</span></div>
+    </div>
+
+    <div class="disclaimer">
+        Al momento de Cancelar la factura no se deberá aplicar la retención del 1%, ya que IPSA se encuentra sujeta al Régimen de Pagos a Cuenta, según lo indica el Decreto #17-2010 (en la fe errata del 29 de mayo del 2010).
+    </div>
+
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width: 20%;">Número de artículo</th>
+                <th style="width: 50%;">Descripcion</th>
+                <th class="text-right" style="width: 10%;">Precio</th>
+                <th class="text-center" style="width: 10%;">Cant.</th>
+                <th class="text-right" style="width: 10%;">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>N-AM123-004-NXX</td>
+                <td>PARALES 199.4 CMS X 1.55 MM NEGRO</td>
+                <td class="text-right">194.33</td>
+                <td class="text-center">4</td>
+                <td class="text-right">777.34</td>
+            </tr>
+            <tr>
+                <td>N-AM123-010-NXX</td>
+                <td>ENTREPAÑO 30.5 X 91.4 CMS CAL 0.6 MM NEGRO 120 LBS</td>
+                <td class="text-right">254.03</td>
+                <td class="text-center">5</td>
+                <td class="text-right">1,270.14</td>
+            </tr>
+            <tr>
+                <td>N-AM123-007-XXX</td>
+                <td>SOPORTE PLATINA GALVANIZADA</td>
+                <td class="text-right">8.47</td>
+                <td class="text-center">20</td>
+                <td class="text-right">169.40</td>
+            </tr>
+            <tr>
+                <td>N-AM123-006-XXX</td>
+                <td>TORNILLO / TUERCA</td>
+                <td class="text-right">7.20</td>
+                <td class="text-center">80</td>
+                <td class="text-right">576.00</td>
+            </tr>
+            <tr>
+                <td>N-AM123-008-PXX</td>
+                <td>BOTA PARALES ESCUADRA</td>
+                <td class="text-right">10.70</td>
+                <td class="text-center">4</td>
+                <td class="text-right">42.80</td>
+            </tr>
+            <tr><td colspan="5" style="height: 250px;"></td></tr>
+        </tbody>
+    </table>
+
+    <div class="footer-notes">
+        <strong>Entregar en:</strong><br>
+        Nota: Como resultado del brote del COVID-19, podrán ocurrir retrasos temporales en las entregas, mano de obra o servicios de IPSA y nuestros proveedores o empresas de transporte marítimo o terrestre. Entre otros factores, las obligaciones de entrega de IPSA están sujetas a un suministro correcto y puntual de parte de nuestros proveedores de materias primas y productos. El problema de la cadena logística a nivel mundial afecta a las empresas de transporte marítimo o terrestre. Por lo tanto, IPSA se reserva el derecho de realizar entregas parciales o modificar sus tiempos de entrega. Si bien IPSA hará todos los esfuerzos comercialmente razonables para cumplir con las obligaciones de entrega, servicio o finalización establecidas en este documento, dichas fechas están sujetas a cambios.
+    </div>
+
+    <div class="bottom-section">
+        <div class="bottom-left">
+            <p>ESTO NO ES FACTURA. EXIJA SU RECIBO EN CAJA</p>
+            <p>PRECIOS VALIDOS UNICAMENTE POR 7 DIAS O HASTA AGOTAR EXISTENCIA</p>
+            <p>MEDIDAS PUEDEN VARIAR +/- 2%.</p>
+            <p><strong>2.5 ALMA ENAMORADO</strong></p>
+            <p><strong>Asesor de Ventas:</strong></p>
+            <span style="font-size: 8px;">ACEPTADO CLIENTE</span>
+            
+            <div class="signatures">
+                <div class="sign-box">ROY CASTRO<br><br><span style="border-top: 1px solid #000; width: 100%; display: block; margin-top: 5px;">NOMBRE</span></div>
+                <div class="sign-box"><br><br><span style="border-top: 1px solid #000; width: 100%; display: block; margin-top: 5px;">FIRMA</span></div>
+            </div>
+        </div>
+        
+        <div class="bottom-middle">
+            <div class="cert-circles">
+                <div class="circle">icontec<br>ISO 9001</div>
+                <div class="circle circle-dark">IQNET</div>
+            </div>
+            <div class="cert-text">SC-CER291633</div>
+        </div>
+
+        <div class="bottom-right">
+            <table class="totals-table">
+                <tr>
+                    <td>SUB-TOTAL:</td>
+                    <td>Lps</td>
+                    <td class="text-right">2,835.68</td>
+                </tr>
+                <tr>
+                    <td>GASTOS ADICIONALES:</td>
+                    <td>Lps</td>
+                    <td class="text-right">0.00</td>
+                </tr>
+                <tr>
+                    <td>IMPUESTO:</td>
+                    <td>Lps</td>
+                    <td class="text-right">425.35</td>
+                </tr>
+                <tr>
+                    <td>TOTAL:</td>
+                    <td>Lps</td>
+                    <td class="text-right">3,261.03</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

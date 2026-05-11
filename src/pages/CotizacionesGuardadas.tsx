@@ -67,6 +67,7 @@ export default function CotizacionesGuardadas({
   const [pendingHtmlPrintCG, setPendingHtmlPrintCG] = useState("");
   const [pendingHtmlEmailCG, setPendingHtmlEmailCG] = useState("");
   const [pendingEmailHintCG, setPendingEmailHintCG] = useState("");
+  const [pendingTransactionIdCG, setPendingTransactionIdCG] = useState("");
   const [showEmailCG, setShowEmailCG] = useState(false);
 
   const doPrintHtmlCG = async (html: string) => {
@@ -308,15 +309,47 @@ export default function CotizacionesGuardadas({
         return;
       }
 
+      const missingSku = (detRows || []).filter(
+        (d: any) => !d.sku && d.producto_id,
+      );
+      let inventarioSkuMap: Record<string, string> = {};
+      if (missingSku.length > 0) {
+        const ids = Array.from(
+          new Set(missingSku.map((d: any) => d.producto_id).filter(Boolean)),
+        );
+        const { data: invRows } = await supabase
+          .from("inventario")
+          .select("id, sku")
+          .in("id", ids);
+        for (const row of invRows || []) {
+          inventarioSkuMap[String(row.id)] = row.sku || "";
+        }
+      }
+
       const carrito = Array.isArray(detRows)
-        ? detRows.map((d: any) => ({
-            producto: { sku: d.sku || "" },
-            descripcion: d.descripcion || d.nombre || "",
-            cantidad: Number(d.cantidad || 1),
-            precio_unitario: Number(d.precio_unitario || d.precio || 0),
-            subtotal: Number(d.subtotal || 0),
-            total: Number(d.total || 0),
-          }))
+        ? detRows.map((d: any) => {
+            const sku =
+              d.sku ||
+              d.codigo ||
+              inventarioSkuMap[String(d.producto_id)] ||
+              "";
+            return {
+              producto: {
+                id: d.producto_id || d.id,
+                sku,
+                codigo: d.codigo || sku,
+                producto_id: d.producto_id,
+              },
+              sku,
+              codigo: d.codigo || sku,
+              producto_id: d.producto_id || d.id,
+              descripcion: d.descripcion || d.nombre || "",
+              cantidad: Number(d.cantidad || 1),
+              precio_unitario: Number(d.precio_unitario || d.precio || 0),
+              subtotal: Number(d.subtotal || 0),
+              total: Number(d.total || 0),
+            };
+          })
         : [];
 
       const opts: any = {
@@ -370,6 +403,7 @@ export default function CotizacionesGuardadas({
       setPendingHtmlPrintCG(html);
       setPendingHtmlEmailCG(htmlEmail);
       setPendingEmailHintCG(emailHint);
+      setPendingTransactionIdCG(String(id));
       setShowDeliveryCG(true);
     } catch (e) {
       console.warn("Error reprinting cotizacion", e);
@@ -1349,6 +1383,7 @@ export default function CotizacionesGuardadas({
         docType="cotizacion"
         initialEmail={pendingEmailHintCG}
         htmlContent={pendingHtmlEmailCG}
+        transactionId={pendingTransactionIdCG}
         onClose={() => setShowEmailCG(false)}
         onAfterSend={async () => {
           setShowEmailCG(false);

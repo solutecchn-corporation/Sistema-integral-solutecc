@@ -83,19 +83,22 @@ export default function HistorialVentasModal({
 
       if (detErr2) console.error("Error ventas_detalle:", detErr2);
 
-      // 2. Para los que no tienen descripcion, buscar nombre en inventario
+      // 2. Para los que no tienen descripcion o SKU, buscar datos en inventario
       const sinDesc = (detalles || []).filter(
-        (d: any) => !d.descripcion && d.producto_id,
+        (d: any) => (!d.descripcion || !d.sku) && d.producto_id,
       );
-      let inventarioMap: Record<string, string> = {};
+      let inventarioMap: Record<string, { nombre: string; sku: string }> = {};
       if (sinDesc.length > 0) {
         const ids = sinDesc.map((d: any) => d.producto_id);
         const { data: invRows } = await supabase
           .from("inventario")
-          .select("id, nombre")
+          .select("id, nombre, sku")
           .in("id", ids);
         for (const row of invRows || []) {
-          inventarioMap[String(row.id)] = row.nombre || "";
+          inventarioMap[String(row.id)] = {
+            nombre: row.nombre || "",
+            sku: row.sku || "",
+          };
         }
       }
 
@@ -107,18 +110,27 @@ export default function HistorialVentasModal({
       const carrito = (detalles || []).map((d: any) => {
         const nombre =
           d.descripcion ||
-          inventarioMap[String(d.producto_id)] ||
+          inventarioMap[String(d.producto_id)]?.nombre ||
           d.nombre ||
           "";
+        const sku =
+          d.sku || d.codigo || inventarioMap[String(d.producto_id)]?.sku || "";
         return {
           producto: {
+            id: d.producto_id || d.id,
             nombre,
+            sku,
+            codigo: d.codigo || sku,
+            producto_id: d.producto_id,
             precio: d.precio_unitario,
             precio_unitario: d.precio_unitario,
             exento: d.exento,
             aplica_impuesto_18: d.aplica_impuesto_18,
             aplica_impuesto_turistico: d.aplica_impuesto_turistico,
           },
+          sku,
+          codigo: d.codigo || sku,
+          producto_id: d.producto_id || d.id,
           cantidad: d.cantidad,
           precio_unitario: d.precio_unitario,
           precio: d.precio_unitario,
@@ -217,6 +229,7 @@ export default function HistorialVentasModal({
         onClose={() => setShowEmail(false)}
         initialEmail={pendingVenta?.email_cliente || ""}
         htmlContent={pendingHtml || ""}
+        transactionId={pendingVenta?.id != null ? String(pendingVenta.id) : ""}
         facturaNumero={pendingVenta?.factura || ""}
         docType="factura"
       />

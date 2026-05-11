@@ -99,19 +99,22 @@ export default function FacturasView() {
 
       if (detErr2) console.error("Error ventas_detalle:", detErr2);
 
-      // 2. Para los que no tienen descripcion, buscar nombre en inventario
+      // 2. Para los que no tienen descripcion o SKU, buscar datos en inventario
       const sinDesc = (detalles || []).filter(
-        (d: any) => !d.descripcion && d.producto_id,
+        (d: any) => (!d.descripcion || !d.sku) && d.producto_id,
       );
-      let inventarioMap: Record<string, string> = {};
+      let inventarioMap: Record<string, { nombre: string; sku: string }> = {};
       if (sinDesc.length > 0) {
         const ids = sinDesc.map((d: any) => d.producto_id);
         const { data: invRows } = await supabase
           .from("inventario")
-          .select("id, nombre")
+          .select("id, nombre, sku")
           .in("id", ids);
         for (const row of invRows || []) {
-          inventarioMap[String(row.id)] = row.nombre || "";
+          inventarioMap[String(row.id)] = {
+            nombre: row.nombre || "",
+            sku: row.sku || "",
+          };
         }
       }
 
@@ -123,18 +126,27 @@ export default function FacturasView() {
       const carrito = (detalles || []).map((d: any) => {
         const nombre =
           d.descripcion ||
-          inventarioMap[String(d.producto_id)] ||
+          inventarioMap[String(d.producto_id)]?.nombre ||
           d.nombre ||
           "";
+        const sku =
+          d.sku || d.codigo || inventarioMap[String(d.producto_id)]?.sku || "";
         return {
           producto: {
+            id: d.producto_id || d.id,
             nombre,
+            sku,
+            codigo: d.codigo || sku,
+            producto_id: d.producto_id,
             precio: d.precio_unitario,
             precio_unitario: d.precio_unitario,
             exento: d.exento,
             aplica_impuesto_18: d.aplica_impuesto_18,
             aplica_impuesto_turistico: d.aplica_impuesto_turistico,
           },
+          sku,
+          codigo: d.codigo || sku,
+          producto_id: d.producto_id || d.id,
           cantidad: d.cantidad,
           precio_unitario: d.precio_unitario,
           precio: d.precio_unitario,
@@ -236,188 +248,196 @@ export default function FacturasView() {
         onClose={() => setShowEmail(false)}
         initialEmail={pendingVenta?.email_cliente || ""}
         htmlContent={pendingHtml || ""}
+        transactionId={pendingVenta?.id != null ? String(pendingVenta.id) : ""}
         facturaNumero={pendingVenta?.factura || ""}
       />
-    <div style={{ padding: 18 }}>
-      <h2 style={{ marginTop: 0 }}>Facturas (ventas)</h2>
+      <div style={{ padding: 18 }}>
+        <h2 style={{ marginTop: 0 }}>Facturas (ventas)</h2>
 
-      {/* Filtros de fecha y estado */}
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          marginBottom: 18,
-          alignItems: "flex-end",
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <label style={{ display: "block", fontSize: 12, color: "#475569" }}>
-            Fecha inicio
-          </label>
-          <input
-            className="input"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-        </div>
-        <div>
-          <label style={{ display: "block", fontSize: 12, color: "#475569" }}>
-            Fecha fin
-          </label>
-          <input
-            className="input"
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
-        </div>
-        {/* Filtro de estado */}
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          {FILTROS.map((f) => (
+        {/* Filtros de fecha y estado */}
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            marginBottom: 18,
+            alignItems: "flex-end",
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <label style={{ display: "block", fontSize: 12, color: "#475569" }}>
+              Fecha inicio
+            </label>
+            <input
+              className="input"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, color: "#475569" }}>
+              Fecha fin
+            </label>
+            <input
+              className="input"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+          {/* Filtro de estado */}
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            {FILTROS.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => setEstadoFiltro(f.value)}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 20,
+                  border: "1.5px solid",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: estadoFiltro === f.value ? 700 : 400,
+                  borderColor: estadoFiltro === f.value ? "#1e3a6e" : "#cbd5e1",
+                  background: estadoFiltro === f.value ? "#1e3a6e" : "#f8fafc",
+                  color: estadoFiltro === f.value ? "#fff" : "#475569",
+                  transition: "all 0.15s",
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ marginLeft: "auto" }}>
             <button
-              key={f.value}
-              onClick={() => setEstadoFiltro(f.value)}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 20,
-                border: "1.5px solid",
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: estadoFiltro === f.value ? 700 : 400,
-                borderColor: estadoFiltro === f.value ? "#1e3a6e" : "#cbd5e1",
-                background: estadoFiltro === f.value ? "#1e3a6e" : "#f8fafc",
-                color: estadoFiltro === f.value ? "#fff" : "#475569",
-                transition: "all 0.15s",
-              }}
+              className="btn-opaque"
+              onClick={fetchData}
+              disabled={loading}
             >
-              {f.label}
+              {loading ? "Cargando..." : "Actualizar"}
             </button>
-          ))}
+          </div>
         </div>
-        <div style={{ marginLeft: "auto" }}>
-          <button className="btn-opaque" onClick={fetchData} disabled={loading}>
-            {loading ? "Cargando..." : "Actualizar"}
-          </button>
-        </div>
-      </div>
 
-      {/* Tarjetas resumen (solo pagadas) */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 12,
-          marginBottom: 20,
-        }}
-      >
-        <div style={{ background: "white", padding: 16, borderRadius: 8 }}>
-          <div style={{ fontSize: 12, color: "#64748b" }}>
-            Facturas pagadas{" "}
-            {estadoFiltro !== "todos" ? `(${estadoFiltro})` : ""}
+        {/* Tarjetas resumen (solo pagadas) */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 12,
+            marginBottom: 20,
+          }}
+        >
+          <div style={{ background: "white", padding: 16, borderRadius: 8 }}>
+            <div style={{ fontSize: 12, color: "#64748b" }}>
+              Facturas pagadas{" "}
+              {estadoFiltro !== "todos" ? `(${estadoFiltro})` : ""}
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>{totalCount}</div>
           </div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>{totalCount}</div>
+          <div style={{ background: "white", padding: 16, borderRadius: 8 }}>
+            <div style={{ fontSize: 12, color: "#64748b" }}>
+              Total vendido (pagadas)
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>
+              L {formatMoney(totalSum)}
+            </div>
+          </div>
+          <div style={{ background: "white", padding: 16, borderRadius: 8 }}>
+            <div style={{ fontSize: 12, color: "#64748b" }}>
+              Mostrando en tabla
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>
+              {ventasFiltradas.length}
+            </div>
+          </div>
         </div>
-        <div style={{ background: "white", padding: 16, borderRadius: 8 }}>
-          <div style={{ fontSize: 12, color: "#64748b" }}>
-            Total vendido (pagadas)
-          </div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>
-            L {formatMoney(totalSum)}
-          </div>
-        </div>
-        <div style={{ background: "white", padding: 16, borderRadius: 8 }}>
-          <div style={{ fontSize: 12, color: "#64748b" }}>
-            Mostrando en tabla
-          </div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>
-            {ventasFiltradas.length}
-          </div>
-        </div>
-      </div>
 
-      {/* Tabla */}
-      <div style={{ background: "white", padding: 12, borderRadius: 8 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ background: "#f8fafc", textAlign: "left" }}>
-              <th style={{ padding: 12 }}>Factura</th>
-              <th style={{ padding: 12 }}>Fecha</th>
-              <th style={{ padding: 12, textAlign: "right" }}>Total</th>
-              <th style={{ padding: 12 }}>Cliente</th>
-              <th style={{ padding: 12 }}>Estado</th>
-              <th style={{ padding: 12, textAlign: "center" }}>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ventasFiltradas.map((v: any) => {
-              const estKey = String(v.estado || "").toLowerCase();
-              const chip = ESTADO_COLORS[estKey];
-              return (
-                <tr key={v.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={{ padding: 12, fontWeight: 600 }}>{v.factura}</td>
-                  <td style={{ padding: 12 }}>
-                    {v.fecha_venta
-                      ? new Date(v.fecha_venta).toLocaleString()
-                      : "-"}
-                  </td>
-                  <td style={{ padding: 12, textAlign: "right" }}>
-                    L {formatMoney(Number(v.total || 0))}
-                  </td>
-                  <td style={{ padding: 12 }}>
-                    {v.nombre_cliente || v.cliente_id || "-"}
-                  </td>
-                  <td style={{ padding: 12 }}>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        padding: "2px 10px",
-                        borderRadius: 12,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        background: chip?.bg || "#f1f5f9",
-                        color: chip?.color || "#475569",
-                        textTransform: "capitalize",
-                      }}
-                    >
-                      {v.estado || "-"}
-                    </span>
-                  </td>
-                  <td style={{ padding: 12, textAlign: "center" }}>
-                    <button
-                      onClick={() => handleReimprimir(v)}
-                      disabled={reprinting === v.id}
-                      title="Reimprimir factura"
-                      style={{
-                        padding: "4px 12px",
-                        borderRadius: 6,
-                        border: "1.5px solid #1e3a6e",
-                        background: reprinting === v.id ? "#e2e8f0" : "#fff",
-                        color: "#1e3a6e",
-                        cursor: reprinting === v.id ? "not-allowed" : "pointer",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                      }}
-                    >
-                      {reprinting === v.id ? "..." : "🖨 Reimprimir"}
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {ventasFiltradas.length === 0 && (
-          <div style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}>
-            No hay facturas en este rango
-          </div>
-        )}
+        {/* Tabla */}
+        <div style={{ background: "white", padding: 12, borderRadius: 8 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "#f8fafc", textAlign: "left" }}>
+                <th style={{ padding: 12 }}>Factura</th>
+                <th style={{ padding: 12 }}>Fecha</th>
+                <th style={{ padding: 12, textAlign: "right" }}>Total</th>
+                <th style={{ padding: 12 }}>Cliente</th>
+                <th style={{ padding: 12 }}>Estado</th>
+                <th style={{ padding: 12, textAlign: "center" }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ventasFiltradas.map((v: any) => {
+                const estKey = String(v.estado || "").toLowerCase();
+                const chip = ESTADO_COLORS[estKey];
+                return (
+                  <tr key={v.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: 12, fontWeight: 600 }}>
+                      {v.factura}
+                    </td>
+                    <td style={{ padding: 12 }}>
+                      {v.fecha_venta
+                        ? new Date(v.fecha_venta).toLocaleString()
+                        : "-"}
+                    </td>
+                    <td style={{ padding: 12, textAlign: "right" }}>
+                      L {formatMoney(Number(v.total || 0))}
+                    </td>
+                    <td style={{ padding: 12 }}>
+                      {v.nombre_cliente || v.cliente_id || "-"}
+                    </td>
+                    <td style={{ padding: 12 }}>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          padding: "2px 10px",
+                          borderRadius: 12,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: chip?.bg || "#f1f5f9",
+                          color: chip?.color || "#475569",
+                          textTransform: "capitalize",
+                        }}
+                      >
+                        {v.estado || "-"}
+                      </span>
+                    </td>
+                    <td style={{ padding: 12, textAlign: "center" }}>
+                      <button
+                        onClick={() => handleReimprimir(v)}
+                        disabled={reprinting === v.id}
+                        title="Reimprimir factura"
+                        style={{
+                          padding: "4px 12px",
+                          borderRadius: 6,
+                          border: "1.5px solid #1e3a6e",
+                          background: reprinting === v.id ? "#e2e8f0" : "#fff",
+                          color: "#1e3a6e",
+                          cursor:
+                            reprinting === v.id ? "not-allowed" : "pointer",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        {reprinting === v.id ? "..." : "🖨 Reimprimir"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {ventasFiltradas.length === 0 && (
+            <div style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}>
+              No hay facturas en este rango
+            </div>
+          )}
+        </div>
       </div>
-    </div>
     </>
   );
 }

@@ -12,7 +12,8 @@ type Props = {
   open: boolean;
   onClose: () => void;
   initialEmail?: string;
-  htmlContent: string;
+  htmlContent?: string;
+  transactionId?: string | number;
   facturaNumero?: string;
   docType?: "factura" | "cotizacion";
   onAfterSend?: () => Promise<void>;
@@ -22,7 +23,8 @@ export default function EmailFacturaModal({
   open,
   onClose,
   initialEmail = "",
-  htmlContent,
+  htmlContent = "",
+  transactionId,
   facturaNumero = "",
   docType = "factura",
   onAfterSend,
@@ -67,26 +69,67 @@ export default function EmailFacturaModal({
     setResult(null);
     setErrorMsg("");
     try {
-      // Siempre enviamos el HTML como fallback por si GAS no puede consultar la DB.
-      // Si hay facturaNumero, GAS lo usa para consultar Supabase y construir un HTML
-      // más actualizado; si la consulta falla, usa el htmlBody como respaldo.
       const bodyObj: any = {
         to: email.trim(),
         subject,
-        htmlBody: htmlContent, // fallback siempre presente
-        type: docType, // siempre enviar para que el PDF tenga el nombre correcto
+        type: docType,
       };
+      if (
+        transactionId !== undefined &&
+        transactionId !== null &&
+        `${transactionId}`.trim()
+      ) {
+        bodyObj.transactionId = String(transactionId).trim();
+      }
       if (facturaNumero) {
         bodyObj.facturaNumero = facturaNumero;
       }
+      if (htmlContent) {
+        bodyObj.htmlBody = htmlContent;
+      }
       const body = JSON.stringify(bodyObj);
-      const resp = await fetch(gasUrl, {
-        method: "POST",
-        mode: "no-cors", // GAS require no-cors para evitar CORS preflight
-        headers: { "Content-Type": "text/plain" },
-        body,
-      });
-      // no-cors retorna opaque response (status 0), asumimos OK si no hay error de red
+      let sentOk = false;
+      let lastError = "";
+
+      try {
+        const resp = await fetch(gasUrl, {
+          method: "POST",
+          mode: "cors",
+          headers: { "Content-Type": "text/plain" },
+          body,
+        });
+        const data = await resp.json().catch(() => null);
+        if (resp.ok && data?.success) {
+          sentOk = true;
+        } else {
+          lastError = String(
+            data?.error || `Error HTTP ${resp.status || "desconocido"}`,
+          );
+        }
+      } catch (err: any) {
+        lastError = String(err?.message || err || "Error de red");
+      }
+
+      if (!sentOk) {
+        try {
+          await fetch(gasUrl, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "text/plain" },
+            body,
+          });
+          sentOk = true;
+        } catch (err: any) {
+          lastError = String(
+            err?.message || err || lastError || "Error de red",
+          );
+        }
+      }
+
+      if (!sentOk) {
+        throw new Error(lastError || "No se pudo enviar el correo");
+      }
+
       setResult("ok");
       if (onAfterSend) {
         try {
