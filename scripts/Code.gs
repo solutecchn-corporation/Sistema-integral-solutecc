@@ -74,20 +74,24 @@ function doPost(e) {
     if (!to || to.indexOf("@") === -1)
       return jsonResponse({ success: false, error: "Correo invalido" });
 
-    // ── 1. Construir documento: preferir HTML del frontend (mismo formato impreso)
-    // y usar DB como respaldo.
+    // ── 1. Construir documento: el HTML debe generarlo Google Apps Script
+    // usando solo `transactionId`, `facturaNumero` y `type`.
+    // NOTA: por seguridad y consistencia NO se aceptará `payload.htmlBody`.
     var builtDoc = buildHtmlFromDB(transactionId, facturaNum, docType);
-    var sourceHtml = payload.htmlBody ? String(payload.htmlBody) : "";
+    if (!builtDoc || !builtDoc.html) {
+      return jsonResponse({
+        success: false,
+        error:
+          "No se encontró documento en DB. Enviar únicamente transactionId, facturaNumero y type.",
+      });
+    }
+    var sourceHtml = String(builtDoc.html);
 
     if (!sourceHtml) {
-      if (builtDoc && builtDoc.html) {
-        sourceHtml = builtDoc.html;
-      } else {
-        return jsonResponse({
-          success: false,
-          error: "No se pudo construir documento desde DB.",
-        });
-      }
+      return jsonResponse({
+        success: false,
+        error: "No se pudo construir documento desde DB.",
+      });
     }
 
     // Normaliza HTML para que Drive no desordene el PDF (logo grande/flex/sticky)
@@ -310,7 +314,22 @@ function enrichDetallesWithSku(detalles) {
 
   return detalles;
 }
-
+// ─── Image utilities ──────────────────────────────────────────────────────────
+function getLogoBase64() {
+  try {
+    var response = UrlFetchApp.fetch("https://i.imgur.com/IxaflWj.jpeg", {
+      muteHttpExceptions: true,
+    });
+    if (response.getResponseCode() === 200) {
+      var blob = response.getBlob();
+      var base64 = Utilities.base64Encode(blob.getBytes());
+      return "data:image/jpeg;base64," + base64;
+    }
+  } catch (e) {
+    Logger.log("Error fetching logo: " + e);
+  }
+  return "";
+}
 // ─── Helpers de formato ───────────────────────────────────────────────────────
 function formatFecha(isoStr) {
   if (!isoStr) return "-";
@@ -475,7 +494,6 @@ function buildFacturaHTML(venta, detalles, empresa, pagos) {
   var direccion = esc(empresa.direccion || empresa.direccion_fiscal || "");
   var telefono = esc(empresa.telefono || empresa.telefono_fijo || "");
   var emailEmp = esc(empresa.email || empresa.correo || "");
-  var logoSrc = empresa.logoUrl || empresa.logo || "";
 
   var numFactura = esc(venta.factura || venta.numero || "");
   var cliente = esc(
@@ -542,8 +560,9 @@ function buildFacturaHTML(venta, detalles, empresa, pagos) {
     </tr>`;
   }
 
-  var logoHtml = logoSrc
-    ? `<img src="${logoSrc}" height="65">`
+  var logoBase64 = getLogoBase64();
+  var logoHtml = logoBase64
+    ? `<img src="${logoBase64}" height="65" style="max-width:110px;height:auto;">`
     : `<span style="font-size:16px;font-weight:bold;color:#004b87;">${empresaNombre}</span>`;
 
   var isv18Row =
@@ -652,7 +671,6 @@ function buildCotizacionHTML(cot, detalles, empresa) {
   var direccion = esc(empresa.direccion || empresa.direccion_fiscal || "");
   var telefono = esc(empresa.telefono || empresa.telefono_fijo || "");
   var emailEmp = esc(empresa.email || empresa.correo || "");
-  var logoSrc = empresa.logoUrl || empresa.logo || "";
 
   var numCot = esc(cot.numero || cot.factura || cot.id || "");
   var cliente = esc(cot.cliente || cot.nombre_cliente || "Cliente");
@@ -695,8 +713,9 @@ function buildCotizacionHTML(cot, detalles, empresa) {
     </tr>`;
   }
 
-  var logoHtml = logoSrc
-    ? `<img src="${logoSrc}" height="65">`
+  var logoBase64 = getLogoBase64();
+  var logoHtml = logoBase64
+    ? `<img src="${logoBase64}" height="65" style="max-width:110px;height:auto;">`
     : `<span style="font-size:16px;font-weight:bold;color:#004b87;">${empresaNombre}</span>`;
 
   var isv18Row =
@@ -785,39 +804,16 @@ function buildCotizacionHTML(cot, detalles, empresa) {
   `;
 }
 
-// ─── Convertir HTML a PDF via Drive API ──────────────────────────────────────
+// ─── Convertir HTML a PDF de forma nativa en Apps Script ───────────────────
 function htmlToPdfBlob(html, filename) {
-  var tmpId = null;
   try {
-    var resource = {
-      title: "tmp_" + new Date().getTime(),
-      mimeType: "application/vnd.google-apps.document",
-    };
-    var blob = Utilities.newBlob(html, MimeType.HTML);
-    var file = Drive.Files.insert(resource, blob, { convert: true });
-    tmpId = file.id;
-
-    var exportUrl =
-      "https://www.googleapis.com/drive/v2/files/" +
-      tmpId +
-      "/export?mimeType=application/pdf";
-    var resp = UrlFetchApp.fetch(exportUrl, {
-      headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() },
-      muteHttpExceptions: true,
-    });
-
-    if (resp.getResponseCode() !== 200) return null;
-    var pdfBlob = resp.getBlob();
+    if (!html) return null;
+    var htmlOutput = HtmlService.createHtmlOutput(html).setWidth(1024);
+    var pdfBlob = htmlOutput.getAs(MimeType.PDF);
     pdfBlob.setName(filename);
     return pdfBlob;
   } catch (e) {
     Logger.log("htmlToPdfBlob error: " + e);
     return null;
-  } finally {
-    if (tmpId) {
-      try {
-        DriveApp.getFileById(tmpId).setTrashed(true);
-      } catch (e2) {}
-    }
   }
 }

@@ -84,9 +84,7 @@ export default function EmailFacturaModal({
       if (facturaNumero) {
         bodyObj.facturaNumero = facturaNumero;
       }
-      if (htmlContent) {
-        bodyObj.htmlBody = htmlContent;
-      }
+      // No enviar htmlBody: el HTML debe generarlo Google Apps Script desde la DB.
       const body = JSON.stringify(bodyObj);
       let sentOk = false;
       let lastError = "";
