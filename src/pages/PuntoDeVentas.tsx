@@ -645,7 +645,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           cantidad: qty,
           precio_unitario: price,
           subtotal: subtotalItem,
-          descuento: 0,
+          descuento: Number(it.descuento || 0),
           total: totalItem,
         };
       });
@@ -2405,7 +2405,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 stock: 0,
                 imagen: undefined,
               };
-          return { producto, cantidad: Number(d.cantidad || 1) };
+          return { producto, cantidad: Number(d.cantidad || 1), descuento: Number(d.descuento || 0) };
         });
         if (items.length > 0) setCarrito(items);
         try {
@@ -2455,7 +2455,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 stock: 0,
                 imagen: undefined,
               };
-          return { producto, cantidad: Number(d.cantidad || 1) };
+          return { producto, cantidad: Number(d.cantidad || 1), descuento: Number(d.descuento || 0) };
         });
         if (items.length > 0) setCarrito(items);
       } catch (e) {}

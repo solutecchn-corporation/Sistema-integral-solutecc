@@ -347,6 +347,7 @@ export default function CotizacionesGuardadas({
               cantidad: Number(d.cantidad || 1),
               precio_unitario: Number(d.precio_unitario || d.precio || 0),
               subtotal: Number(d.subtotal || 0),
+              descuento: Number(d.descuento || 0),
               total: Number(d.total || 0),
             };
           })

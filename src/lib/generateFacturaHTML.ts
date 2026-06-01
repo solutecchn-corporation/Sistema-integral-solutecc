@@ -410,12 +410,13 @@ export async function generateFacturaHTML(
         <table class="items-table">
             <thead>
                 <tr>
-                    <th style="width: 18%;">Código / SKU</th>
-                    <th style="width: 47%;">Descripción</th>
-                    <th class="text-right" style="width: 12%;">Precio Unit.</th>
-                    <th class="text-center" style="width: 8%;">Cant.</th>
-                    <th class="text-right" style="width: 15%;">Total</th>
-                </tr>
+                      <th style="width: 16%;">Código / SKU</th>
+                      <th style="width: 44%;">Descripción</th>
+                      <th class="text-right" style="width: 12%;">Precio Unit.</th>
+                      <th class="text-center" style="width: 8%;">Cant.</th>
+                      <th class="text-right" style="width: 10%;">Descuento</th>
+                      <th class="text-right" style="width: 10%;">Total</th>
+                    </tr>
             </thead>
             <tbody>${cotizacionItems}</tbody>
         </table>
@@ -485,13 +486,16 @@ export async function generateFacturaHTML(
         (i.producto && i.producto.id) ||
         "";
 
-      return `<tr>
-        <td>${sku}</td>
-        <td>${desc}</td>
-        <td class="text-right">${fmtMoney(precioUnitario)}</td>
-        <td class="text-center">${cant}</td>
-        <td class="text-right">${fmtMoney(subtotalLinea)}</td>
-      </tr>`;
+        const pct = Number(i.descuento || 0);
+        const descuentoMonto = precioBrutoUnit * (pct / 100) * cant;
+        return `<tr>
+          <td>${sku}</td>
+          <td>${desc}</td>
+          <td class="text-right">${fmtMoney(precioUnitario)}</td>
+          <td class="text-center">${cant}</td>
+          <td class="text-right">${fmtMoney(descuentoMonto)}</td>
+          <td class="text-right">${fmtMoney(subtotalLinea)}</td>
+        </tr>`;
     })
     .join("\n");
 

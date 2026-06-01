@@ -499,168 +499,222 @@ function buildFacturaHTML(venta, detalles, empresa, pagos) {
   var cliente = esc(
     venta.cliente || venta.nombre_cliente || "Consumidor Final",
   );
-  var rtnCli = esc(venta.rtn_cliente || venta.rtn || "C/F");
-  var dirCli = esc(venta.direccion_cliente || "-");
+  var identidad = esc(venta.rtn_cliente || venta.rtn || "C/F");
+  var direccionCliente = esc(venta.direccion_cliente || "—");
 
-  var fechaDocObj = venta.fecha
+  var hoy = venta.fecha
     ? new Date(venta.fecha)
     : new Date(venta.created_at || Date.now());
-  var fechaDoc = formatFecha(venta.fecha || venta.created_at);
-  var horaDoc = esc(
+  var diaN = String(hoy.getDate()).padStart(2, "0");
+  var mesN = String(hoy.getMonth() + 1).padStart(2, "0");
+  var anioN = String(hoy.getFullYear());
+  var horaStr = esc(
     venta.hora ||
-      fechaDocObj.toLocaleTimeString("es-HN", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      hoy.toLocaleTimeString("es-HN", { hour: "2-digit", minute: "2-digit" }),
   );
 
-  var cai = esc(venta.cai || "-");
-  var rangoDesde = esc(venta.rango_de || "-");
-  var rangoHasta = esc(venta.rango_hasta || "-");
-  var fechaLimit = esc(
-    venta.fecha_limite_emision || venta.fecha_vencimiento_cai || "-",
-  );
+  var Gravado = parseFloat(venta.gravado || venta.sub_total_gravado || 0) || 0;
+  var Exento = parseFloat(venta.exento || venta.sub_total_exento || 0) || 0;
+  var DSC = parseFloat(venta.descuento || 0) || 0;
+  var impuesto = parseFloat(venta.isv || venta.impuesto || 0) || 0;
+  var ISV18 = parseFloat(venta.isv_18 || venta.impuesto_18 || 0) || 0;
+  var ft = parseFloat(venta.total || venta.total_factura || 0) || 0;
 
-  var subGravado = parseFloat(venta.gravado || venta.sub_total_gravado || 0);
-  var subExento = parseFloat(venta.exento || venta.sub_total_exento || 0);
-  var descuento = parseFloat(venta.descuento || 0);
-  var isv15 = parseFloat(venta.isv || venta.impuesto || 0);
-  var isv18 = parseFloat(venta.isv_18 || venta.impuesto_18 || 0);
-  var total = parseFloat(venta.total || venta.total_factura || 0);
-
-  var efectivo = 0,
-    tarjeta = 0,
-    transferencia = 0,
+  var pagosObj = pagos || [];
+  var Efectivo = 0,
+    Tarjeta = 0,
+    Transferencia = 0,
     cambio = 0;
-  for (var p = 0; p < pagos.length; p++) {
-    var met = String(pagos[p].metodo || pagos[p].tipo_pago || "").toLowerCase();
-    var monto = parseFloat(pagos[p].monto || pagos[p].valor || 0);
-    if (met.indexOf("efectivo") >= 0) efectivo += monto;
-    else if (met.indexOf("tarjeta") >= 0) tarjeta += monto;
-    else if (met.indexOf("transfer") >= 0) transferencia += monto;
-    if (pagos[p].cambio) cambio = parseFloat(pagos[p].cambio);
+  for (var p = 0; p < pagosObj.length; p++) {
+    var met = String(
+      pagosObj[p].metodo || pagosObj[p].tipo_pago || "",
+    ).toLowerCase();
+    var monto = parseFloat(pagosObj[p].monto || pagosObj[p].valor || 0);
+    if (met.indexOf("efectivo") >= 0) Efectivo += monto;
+    else if (met.indexOf("tarjeta") >= 0) Tarjeta += monto;
+    else if (met.indexOf("transfer") >= 0) Transferencia += monto;
+    if (pagosObj[p].cambio) cambio = parseFloat(pagosObj[p].cambio);
   }
 
-  var letrasTotal = numeroALetras(total) || "CERO";
+  var letras = numeroALetras(ft || 0) || "CERO";
 
-  var rowsHtml = "";
-  for (var d = 0; d < detalles.length; d++) {
-    var det = detalles[d];
-    var sku = esc(det.sku || det.codigo || det.producto_id || det.id || "");
-    var desc = esc(det.descripcion || det.nombre || det.producto_nombre || "");
-    var cant = parseFloat(det.cantidad || det.qty || 0);
-    var punit = parseFloat(det.precio_unitario || det.precio || 0);
-    var lineTot = cant * punit;
-    rowsHtml += `<tr>
-      <td align="center">${sku}</td>
+  var facturaItems = "";
+  for (var i = 0; i < detalles.length; i++) {
+    var it = detalles[i] || {};
+    var desc = esc(
+      it.descripcion ||
+        it.nombre ||
+        (it.producto && (it.producto.nombre || it.producto.descripcion)) ||
+        "",
+    );
+    var cant = Number(it.cantidad || it.qty || 0) || 0;
+    var precioBrutoUnit =
+      Number(
+        it.precio_unitario ||
+          it.precio ||
+          (it.producto && (it.producto.precio || 0)),
+      ) || 0;
+    var exento = Boolean(it.exento || (it.producto && it.producto.exento));
+    var aplica18 = Boolean(
+      it.aplica_impuesto_18 || (it.producto && it.producto.aplica_impuesto_18),
+    );
+    var mainRate = aplica18
+      ? venta.tax18Rate || venta.tax18 || 0
+      : venta.taxRate || venta.tax || 0;
+    var precioUnitario = precioBrutoUnit;
+    if (!exento && mainRate)
+      precioUnitario = precioBrutoUnit / (1 + Number(mainRate || 0));
+    var subtotalLinea = precioUnitario * cant;
+    var sku = esc(
+      (it.producto && it.producto.sku) ||
+        it.sku ||
+        it.codigo ||
+        it.producto_id ||
+        (it.producto && it.producto.id) ||
+        "",
+    );
+    facturaItems += `<tr>
+      <td>${sku}</td>
       <td>${desc}</td>
-      <td align="right">${fmtMoney(punit)}</td>
-      <td align="center">${cant}</td>
-      <td align="right">${fmtMoney(lineTot)}</td>
+      <td class="text-right">${fmtMoney(precioUnitario)}</td>
+      <td class="text-center">${cant}</td>
+      <td class="text-right">${fmtMoney(subtotalLinea)}</td>
     </tr>`;
   }
 
   var logoBase64 = getLogoBase64();
-  var logoHtml = logoBase64
-    ? `<img src="${logoBase64}" height="65" style="max-width:110px;height:auto;">`
-    : `<span style="font-size:16px;font-weight:bold;color:#004b87;">${empresaNombre}</span>`;
+  var logoHtmlFactura = logoBase64
+    ? `<img src="${logoBase64}" alt="Logo" style="max-width:100px; max-height:60px; object-fit:contain;" />`
+    : `<span style="font-size: 20px; font-weight: bold; color: #004b87;">${empresaNombre}</span>`;
 
-  var isv18Row =
-    isv18 > 0
-      ? `<tr><td align="right">ISV 18%:</td><td align="right">L ${fmtMoney(isv18)}</td></tr>`
-      : "";
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Factura ${numFactura}</title>
+    <style>
+        @page { size: letter portrait; margin: 0.35in 0.45in; }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body { font-family: Arial, sans-serif; font-size: 11px; padding: 20px; background-color: #fff; color: #000; }
+        .container { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; min-height: calc(100vh - 40px); }
+        .content-wrapper { flex-grow: 1; }
+        .top-info-box { border: 1px solid #000; padding: 15px; margin-bottom: 20px; border-radius: 4px; }
+        .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 10px; }
+        .logo { display: flex; align-items: center; width: 20%; }
+        .company-info { width: 45%; padding-left: 10px; font-size: 10px; line-height: 1.3; }
+        .company-name { font-weight: bold; font-size: 14px; margin-bottom: 2px; text-transform: uppercase; text-align: center; }
+        .contact-info { width: 15%; font-size: 10px; line-height: 1.3; }
+        .doc-info { width: 20%; text-align: right; font-size: 10px; }
+        .cotizacion-box { border: 2px solid #000; padding: 5px 10px; text-align: center; margin-top: 5px; }
+        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
+        .items-table th { border-top: 1px solid #000; border-bottom: 1px solid #000; text-align: left; padding: 6px 5px; background-color: #f9f9f9; }
+        .items-table td { padding: 5px; border-bottom: 1px dashed #ccc; }
+        .text-right { text-align: right !important; }
+        .text-center { text-align: center !important; }
+        .bottom-section { border: 1px solid #000; display: flex; justify-content: space-between; border-radius: 4px; margin-top: 20px; }
+        .bottom-left { width: 55%; padding: 10px; font-size: 10px; line-height: 1.3; }
+        .bottom-middle { width: 15%; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 10px; }
+        .bottom-right { width: 30%; border-left: 1px solid #000; }
+        .totals-table { width: 100%; border-collapse: collapse; height: 100%; font-size: 11px; }
+        .totals-table td { padding: 4px 8px; }
+        .totals-table tr:last-child { border-top: 1px solid #000; font-weight: bold; font-size: 13px; background-color: #f0f0f0; }
+        @media print { body { padding: 0; } .container { min-height: 98vh; height: 98vh; page-break-inside: avoid; } }
+    </style>
+</head>
+<body>
 
-  return `
-    <html>
-      <body style="font-family: Arial, sans-serif; font-size: 11px; color: #000;">
+<div class="container">
+    <div class="content-wrapper">
+        <div class="top-info-box">
+            <div class="header-top">
+                <div class="logo">${logoHtmlFactura}</div>
+                <div class="company-info">
+                    <div class="company-name">${empresaNombre}</div>
+                    <div class="racp-title">R.A.C.P</div>
+                    <div>${direccion}</div>
+                    <div>TEL: ${telefono}</div>
+                    <div>EMAIL: ${emailEmp}</div>
+                </div>
+                <div class="contact-info"><div><strong>RTN:</strong><br>${rtnEmp}</div></div>
+                <div class="doc-info">
+                    <div>Original: Cliente</div>
+                    <div class="cotizacion-box">
+                        <div class="title">FACTURA</div>
+                        <div class="number"><span>No.</span><span>${numFactura}</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="customer-section">
+                <div class="customer-left">
+                    <table>
+                        <tr><td class="label">RTN:</td><td>${identidad || "C/F"}</td></tr>
+                        <tr><td class="label">Cliente:</td><td><strong>${cliente}</strong></td></tr>
+                        <tr><td class="label">Dirección:</td><td>${direccionCliente || "—"}</td></tr>
+                    </table>
+                </div>
+                <div class="customer-right">
+                    <table>
+                        <tr><td class="label">Fecha:</td><td>${diaN}/${mesN}/${anioN}</td></tr>
+                        <tr><td class="label">Hora:</td><td>${horaStr}</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width: 18%;">Código / SKU</th>
+                    <th style="width: 47%;">Descripción</th>
+                    <th class="text-right" style="width: 12%;">Precio Unit.</th>
+                    <th class="text-center" style="width: 8%;">Cant.</th>
+                    <th class="text-right" style="width: 15%;">Total</th>
+                </tr>
+            </thead>
+            <tbody>${facturaItems}</tbody>
+        </table>
+    </div>
+
+    <div class="bottom-section">
+        <div class="bottom-left">
+            <div class="letras">*** ${letras} Lempiras ***</div>
+            <div class="cai-box">
+                <strong>CAI:</strong> ${esc(venta.cai || venta.CAI || "—")}<br>
+                <strong>Rango Autorizado:</strong> ${esc((venta.rango_de || "-") + " - " + (venta.rango_hasta || "-"))}<br>
+                <strong>Fecha Límite Emisión:</strong> ${esc(venta.fecha_limite_emision || venta.fecha_vencimiento_cai || "—")}
+            </div>
+            <p style="margin-top: 10px; font-weight: bold;">LA FACTURA ES BENEFICIO DE TODOS, EXÍJALA</p>
+            <p style="color: #555; font-size: 9px;">¡Gracias por su preferencia!</p>
+        </div>
         
-        <table width="100%" border="0" cellpadding="2" cellspacing="0">
-          <tr>
-            <td width="20%" valign="middle" align="center">${logoHtml}</td>
-            <td width="55%" valign="top" align="center">
-              <span style="font-size: 14px; font-weight: bold; text-transform: uppercase;">${empresaNombre}</span><br>
-              <b>R.A.C.P</b><br>
-              ${direccion}<br>TEL: ${telefono}<br>EMAIL: ${emailEmp}<br><b>RTN:</b> ${rtnEmp}
-            </td>
-            <td width="25%" valign="top" align="right">
-               <div style="font-size: 9px; margin-bottom: 2px;">Original: Cliente</div>
-               <table width="100%" border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse;">
-                 <tr><td align="center" bgcolor="#eeeeee"><b>FACTURA</b></td></tr>
-                 <tr><td align="center"><b>No. ${numFactura}</b></td></tr>
-               </table>
-            </td>
-          </tr>
-        </table>
-        
-        <br>
-        
-        <table width="100%" border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse;">
-          <tr>
-            <td width="65%" valign="top">
-              <b>RTN Cliente:</b> ${rtnCli}<br>
-              <b>Cliente:</b> ${cliente}<br>
-              <b>Dirección:</b> ${dirCli}
-            </td>
-            <td width="35%" valign="top">
-              <b>Fecha:</b> ${fechaDoc}<br>
-              <b>Hora:</b> ${horaDoc}
-            </td>
-          </tr>
-        </table>
+        <div class="bottom-middle">
+            <p style="text-align:center; font-size: 9px; font-weight:bold;">MÉTODOS<br>DE PAGO</p>
+            <div style="font-size: 8px; text-align: center; margin-top: 5px;">
+                Efectivo: L ${fmtMoney(Efectivo)}<br>
+                Tarjeta: L ${fmtMoney(Tarjeta)}<br>
+                Transf.: L ${fmtMoney(Transferencia)}<br>
+                <strong>Cambio: L ${fmtMoney(cambio)}</strong>
+            </div>
+        </div>
 
-        <br>
+        <div class="bottom-right">
+            <table class="totals-table">
+                <tr><td>SUB-TOTAL GRAVADO:</td><td>L</td><td class="text-right">${fmtMoney(Gravado)}</td></tr>
+                <tr><td>SUB-TOTAL EXENTO:</td><td>L</td><td class="text-right">${fmtMoney(Exento)}</td></tr>
+                <tr><td>DESCUENTO:</td><td>L</td><td class="text-right">${fmtMoney(DSC)}</td></tr>
+                <tr><td>ISV 15%:</td><td>L</td><td class="text-right">${fmtMoney(impuesto)}</td></tr>
+                ${Number(ISV18) > 0 ? `<tr><td>ISV 18%:</td><td>L</td><td class="text-right">${fmtMoney(ISV18)}</td></tr>` : ""}
+                <tr><td>TOTAL A PAGAR:</td><td>L</td><td class="text-right">${fmtMoney(ft)}</td></tr>
+            </table>
+        </div>
+    </div>
+</div>
 
-        <table width="100%" border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse;">
-          <thead>
-            <tr bgcolor="#eeeeee">
-              <th width="15%" align="center">Código</th>
-              <th width="45%" align="left">Descripción</th>
-              <th width="15%" align="right">Precio Unit.</th>
-              <th width="10%" align="center">Cant.</th>
-              <th width="15%" align="right">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-        </table>
-
-        <br>
-
-        <table width="100%" border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse;">
-          <tr>
-            <td width="65%" valign="top">
-              <b>*** ${letrasTotal} LEMPIRAS ***</b><br><br>
-              <b>CAI:</b> ${cai}<br>
-              <b>Rango Autorizado:</b> ${rangoDesde} - ${rangoHasta}<br>
-              <b>Fecha Límite Emisión:</b> ${fechaLimit}<br><br>
-              <b>LA FACTURA ES BENEFICIO DE TODOS, EXÍJALA</b>
-            </td>
-            <td width="35%" valign="top" style="padding: 0;">
-              <table width="100%" border="0" cellpadding="4" cellspacing="0">
-                <tr><td align="right">Sub-Total Gravado:</td><td align="right">L ${fmtMoney(subGravado)}</td></tr>
-                <tr><td align="right">Sub-Total Exento:</td><td align="right">L ${fmtMoney(subExento)}</td></tr>
-                <tr><td align="right">Descuento:</td><td align="right">L ${fmtMoney(descuento)}</td></tr>
-                <tr><td align="right">ISV 15%:</td><td align="right">L ${fmtMoney(isv15)}</td></tr>
-                ${isv18Row}
-                <tr><td align="right" bgcolor="#eeeeee" style="border-top: 1px solid #000;"><b>TOTAL A PAGAR:</b></td><td align="right" bgcolor="#eeeeee" style="border-top: 1px solid #000;"><b>L ${fmtMoney(total)}</b></td></tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-        
-        <br>
-
-        <table width="100%" border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse;">
-          <tr>
-            <td align="center">
-               <b>MÉTODOS DE PAGO:</b>&nbsp;&nbsp; Efectivo: L ${fmtMoney(efectivo)} &nbsp;|&nbsp; Tarjeta: L ${fmtMoney(tarjeta)} &nbsp;|&nbsp; Transf.: L ${fmtMoney(transferencia)} &nbsp;|&nbsp; <b>Cambio: L ${fmtMoney(cambio)}</b>
-            </td>
-          </tr>
-        </table>
-      </body>
-    </html>
-  `;
+</body>
+</html>`;
 }
 
 function buildCotizacionHTML(cot, detalles, empresa) {
