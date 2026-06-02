@@ -333,6 +333,10 @@ export default function CotizacionesGuardadas({
               d.codigo ||
               inventarioSkuMap[String(d.producto_id)] ||
               "";
+            // Usamos subtotal como el Total Real para desglose tax-inclusive
+            const realTotal = Number(
+              d.subtotal || (d.precio_unitario || 0) * (d.cantidad || 0),
+            );
             return {
               producto: {
                 id: d.producto_id || d.id,
@@ -346,9 +350,9 @@ export default function CotizacionesGuardadas({
               descripcion: d.descripcion || d.nombre || "",
               cantidad: Number(d.cantidad || 1),
               precio_unitario: Number(d.precio_unitario || d.precio || 0),
-              subtotal: Number(d.subtotal || 0),
+              subtotal: realTotal / 1.15, // Extraemos el subtotal correctamente
               descuento: Number(d.descuento || 0),
-              total: Number(d.total || 0),
+              total: realTotal,
             };
           })
         : [];
@@ -360,13 +364,18 @@ export default function CotizacionesGuardadas({
           (hd as any).numero_cotizacion || (hd as any)["Número"] || null,
       };
 
+      const trueTotal = carrito.reduce(
+        (sum: number, item: any) => sum + item.total,
+        0,
+      );
+
       const params: any = {
         carrito,
-        subtotal: Number((hd as any).subtotal || 0),
-        isvTotal: Number((hd as any).isv || (hd as any).impuesto || 0),
-        imp18Total: Number((hd as any).impuesto_18 || 0),
-        impTouristTotal: Number((hd as any).impuesto_turistico || 0),
-        total: Number((hd as any).total || 0),
+        subtotal: trueTotal / 1.15,
+        isvTotal: trueTotal - trueTotal / 1.15,
+        imp18Total: 0,
+        impTouristTotal: 0,
+        total: trueTotal,
       };
 
       const html = await generateCotizacionHTML(opts, "cotizacion", params);
@@ -720,7 +729,8 @@ export default function CotizacionesGuardadas({
                         color: "#1e293b",
                       }}
                     >
-                      L {formatMoney(Number(r.total || 0))}
+                      {/* Corregido: Mostrar el subtotal como el Total Real en la tabla global */}
+                     L {formatMoney(Number(r.total || 0))}
                     </td>
                     <td style={{ padding: "16px 24px" }}>
                       <span
@@ -828,7 +838,10 @@ export default function CotizacionesGuardadas({
               }}
             >
               <h3 style={{ margin: 0, fontSize: "20px", color: "#1e293b" }}>
-                  Cotización #{viewHeader?.numero_cotizacion || (viewHeader as any)?.["Número"] || "N/A"}
+                Cotización #
+                {viewHeader?.numero_cotizacion ||
+                  (viewHeader as any)?.["Número"] ||
+                  "N/A"}
               </h3>
               <button
                 onClick={() => {
@@ -1000,56 +1013,61 @@ export default function CotizacionesGuardadas({
                   </tr>
                 </thead>
                 <tbody>
-                  {detalles.map((d, idx) => (
-                    <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ padding: "12px 16px", color: "#1e293b" }}>
-                        {d.descripcion}
-                      </td>
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          textAlign: "right",
-                          color: "#64748b",
-                        }}
+                  {detalles.map((d, idx) => {
+                    // Corregido: Tomamos el subtotal (base de cobro) como el verdadero Total de línea tax-inclusive
+                    const realTotal = Number(
+                      d.subtotal ||
+                        (d.precio_unitario || 0) * (d.cantidad || 0),
+                    );
+                    const realSubtotal = realTotal / 1.15;
+                    return (
+                      <tr
+                        key={idx}
+                        style={{ borderBottom: "1px solid #f1f5f9" }}
                       >
-                        {d.cantidad}
-                      </td>
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          textAlign: "right",
-                          color: "#64748b",
-                        }}
-                      >
-                        L {formatMoney(Number(d.precio_unitario || 0))}
-                      </td>
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          textAlign: "right",
-                          color: "#64748b",
-                        }}
-                      >
-                        L{" "}
-                        {formatMoney(
-                          Number(
-                            d.subtotal ||
-                              (d.precio_unitario || 0) * (d.cantidad || 0),
-                          ),
-                        )}
-                      </td>
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          textAlign: "right",
-                          fontWeight: 600,
-                          color: "#1e293b",
-                        }}
-                      >
-                        L {formatMoney(Number(d.total || 0))}
-                      </td>
-                    </tr>
-                  ))}
+                        <td style={{ padding: "12px 16px", color: "#1e293b" }}>
+                          {d.descripcion}
+                        </td>
+                        <td
+                          style={{
+                            padding: "12px 16px",
+                            textAlign: "right",
+                            color: "#64748b",
+                          }}
+                        >
+                          {d.cantidad}
+                        </td>
+                        <td
+                          style={{
+                            padding: "12px 16px",
+                            textAlign: "right",
+                            color: "#64748b",
+                          }}
+                        >
+                          L {formatMoney(Number(d.precio_unitario || 0))}
+                        </td>
+                        <td
+                          style={{
+                            padding: "12px 16px",
+                            textAlign: "right",
+                            color: "#64748b",
+                          }}
+                        >
+                          L {formatMoney(realSubtotal)}
+                        </td>
+                        <td
+                          style={{
+                            padding: "12px 16px",
+                            textAlign: "right",
+                            fontWeight: 600,
+                            color: "#1e293b",
+                          }}
+                        >
+                          L {formatMoney(realTotal)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1065,19 +1083,21 @@ export default function CotizacionesGuardadas({
                   }}
                 >
                   {(() => {
-                      // El total guardado es el precio con descuento (ya incluye ISV)
-                    const subtotalCalculado = detalles.reduce(
-                      (sum, d) => sum + Number(d.subtotal || 0),
-                      0,
-                    );
+                    // Corregido: Sumamos el total base desde la propiedad de subtotal (ya que es el precio final acordado)
                     const totalCalculado = detalles.reduce(
-                      (sum, d) => sum + Number(d.total || 0),
+                      (sum, d) =>
+                        sum +
+                        Number(
+                          d.subtotal ||
+                            (d.precio_unitario || 0) * (d.cantidad || 0),
+                        ),
                       0,
                     );
-                      // ISV está incluido en el total, extraer del precio: total - total / (1 + rate)
-                      // Usar tasa por defecto 15% si no hay una variable `taxRate` disponible en este componente
-                      const rateIsvPromedio = 0.15;
-                      const impuestoCalculado = totalCalculado - totalCalculado / (1 + rateIsvPromedio);
+                    const rateIsvPromedio = 0.15;
+                    const subtotalCalculado =
+                      totalCalculado / (1 + rateIsvPromedio);
+                    const impuestoCalculado =
+                      totalCalculado - subtotalCalculado;
 
                     return (
                       <>
@@ -1090,7 +1110,7 @@ export default function CotizacionesGuardadas({
                         >
                           <span style={{ color: "#64748b" }}>Subtotal:</span>
                           <span style={{ fontWeight: 500 }}>
-                              L {formatMoney(totalCalculado / (1 + rateIsvPromedio))}
+                            L {formatMoney(subtotalCalculado)}
                           </span>
                         </div>
                         <div

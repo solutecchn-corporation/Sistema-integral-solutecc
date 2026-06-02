@@ -486,9 +486,9 @@ export async function generateFacturaHTML(
         (i.producto && i.producto.id) ||
         "";
 
-        const pct = Number(i.descuento || 0);
-        const descuentoMonto = precioBrutoUnit * (pct / 100) * cant;
-        return `<tr>
+      const pct = Number(i.descuento || 0);
+      const descuentoMonto = precioBrutoUnit * (pct / 100) * cant;
+      return `<tr>
           <td>${sku}</td>
           <td>${desc}</td>
           <td class="text-right">${fmtMoney(precioUnitario)}</td>

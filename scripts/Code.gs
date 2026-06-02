@@ -7,13 +7,20 @@
 
 // ─── Credenciales desde Script Properties ──────────────────────────────────────
 function getSupabaseUrl() {
-  return PropertiesService.getScriptProperties().getProperty("SUPABASE_URL") || "";
+  return (
+    PropertiesService.getScriptProperties().getProperty("SUPABASE_URL") || ""
+  );
 }
 function getSupabaseKey() {
-  return PropertiesService.getScriptProperties().getProperty("SUPABASE_KEY") || "";
+  return (
+    PropertiesService.getScriptProperties().getProperty("SUPABASE_KEY") || ""
+  );
 }
 function getEmpresaNombreDefault() {
-  return PropertiesService.getScriptProperties().getProperty("EMPRESA_NOMBRE") || "SOLUCIONES TECNICAS CASTRO";
+  return (
+    PropertiesService.getScriptProperties().getProperty("EMPRESA_NOMBRE") ||
+    "SOLUCIONES TECNICAS CASTRO"
+  );
 }
 
 // ─── Helper: consulta REST de Supabase ─────────────────────────────────────────
@@ -71,17 +78,25 @@ function doPost(e) {
     if (!builtDoc || !builtDoc.html) {
       return jsonResponse({
         success: false,
-        error: "No se encontró documento en DB. Enviar únicamente transactionId, facturaNumero y type.",
+        error:
+          "No se encontró documento en DB. Enviar únicamente transactionId, facturaNumero y type.",
       });
     }
-    
+
     var pdfHtml = String(builtDoc.html);
 
     builtDoc.html = pdfHtml;
-    if (!builtDoc.cliente) builtDoc.cliente = payload.cliente || payload.nombre_cliente || "Cliente";
+    if (!builtDoc.cliente)
+      builtDoc.cliente = payload.cliente || payload.nombre_cliente || "Cliente";
 
-    var pdfLabel = builtDoc.label || facturaNum || (docType === "cotizacion" ? "Cotizacion" : "Factura");
-    var pdfName = (docType === "cotizacion" ? "Cotizacion_" : "Factura_") + pdfLabel + ".pdf";
+    var pdfLabel =
+      builtDoc.label ||
+      facturaNum ||
+      (docType === "cotizacion" ? "Cotizacion" : "Factura");
+    var pdfName =
+      (docType === "cotizacion" ? "Cotizacion_" : "Factura_") +
+      pdfLabel +
+      ".pdf";
     var pdfBlob = null;
     try {
       pdfBlob = htmlToPdfBlob(builtDoc.html, pdfName);
@@ -107,8 +122,12 @@ function doPost(e) {
       </div>
     `;
 
-    var plainText = "Estimado cliente, adjunto encontrara su " + tipoDocEmail + ". Por favor abra el archivo PDF adjunto.";
-    var subject = tipoDocEmail + " No. " + pdfLabel + " – " + getEmpresaNombreDefault();
+    var plainText =
+      "Estimado cliente, adjunto encontrara su " +
+      tipoDocEmail +
+      ". Por favor abra el archivo PDF adjunto.";
+    var subject =
+      tipoDocEmail + " No. " + pdfLabel + " – " + getEmpresaNombreDefault();
 
     var emailOpts = {
       htmlBody: htmlNotificacionEmail,
@@ -124,7 +143,9 @@ function doPost(e) {
 }
 
 function jsonResponse(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
+    ContentService.MimeType.JSON,
+  );
 }
 
 // ─── Construir HTML desde la DB ───────────────────────────────────────────────
@@ -137,18 +158,31 @@ function buildHtmlFromDB(transactionId, facturaNumero, docType) {
     var selectQuery = "&select=*,clientes(*)&limit=1";
 
     if (transactionId)
-      cots = supabaseGet("cotizaciones", "id=eq." + encodeURIComponent(transactionId) + selectQuery);
+      cots = supabaseGet(
+        "cotizaciones",
+        "id=eq." + encodeURIComponent(transactionId) + selectQuery,
+      );
     if ((!cots || cots.length === 0) && facturaNumero)
-      cots = supabaseGet("cotizaciones", "numero_cotizacion=eq." + encodeURIComponent(facturaNumero) + selectQuery);
+      cots = supabaseGet(
+        "cotizaciones",
+        "numero_cotizacion=eq." +
+          encodeURIComponent(facturaNumero) +
+          selectQuery,
+      );
 
     if (cots && cots.length > 0) {
       var cot = cots[0];
-      var cotDet = supabaseGet("cotizaciones_detalle", "cotizacion_id=eq." + encodeURIComponent(cot.id) + "&select=*&order=id.asc");
+      var cotDet = supabaseGet(
+        "cotizaciones_detalle",
+        "cotizacion_id=eq." +
+          encodeURIComponent(cot.id) +
+          "&select=*&order=id.asc",
+      );
       cotDet = enrichDetallesWithSku(cotDet || []);
-      
+
       var cotLabel = cot.numero_cotizacion || cot.id || "Cotizacion";
-      var clienteInfo = cot.clientes || {}; 
-      
+      var clienteInfo = cot.clientes || {};
+
       return {
         html: buildCotizacionHTML(cot, cotDet || [], empresa),
         label: String(cotLabel),
@@ -160,17 +194,34 @@ function buildHtmlFromDB(transactionId, facturaNumero, docType) {
 
   var ventas = [];
   if (transactionId)
-    ventas = supabaseGet("ventas", "id=eq." + encodeURIComponent(transactionId) + "&select=*&limit=1");
+    ventas = supabaseGet(
+      "ventas",
+      "id=eq." + encodeURIComponent(transactionId) + "&select=*&limit=1",
+    );
   if ((!ventas || ventas.length === 0) && facturaNumero)
-    ventas = supabaseGet("ventas", "factura=eq." + encodeURIComponent(facturaNumero) + "&select=*&limit=1");
+    ventas = supabaseGet(
+      "ventas",
+      "factura=eq." + encodeURIComponent(facturaNumero) + "&select=*&limit=1",
+    );
 
   if (ventas && ventas.length > 0) {
     var venta = ventas[0];
-    var detalles = supabaseGet("ventas_detalle", "venta_id=eq." + encodeURIComponent(venta.id) + "&select=*&order=id.asc");
+    var detalles = supabaseGet(
+      "ventas_detalle",
+      "venta_id=eq." + encodeURIComponent(venta.id) + "&select=*&order=id.asc",
+    );
     detalles = enrichDetallesWithSku(detalles || []);
-    var pagos = supabaseGet("pagos", "venta_id=eq." + encodeURIComponent(venta.id) + "&select=*");
+    var pagos = supabaseGet(
+      "pagos",
+      "venta_id=eq." + encodeURIComponent(venta.id) + "&select=*",
+    );
     if (!pagos || pagos.length === 0)
-      pagos = supabaseGet("pagos", "factura=eq." + encodeURIComponent(venta.factura || facturaNumero || "") + "&select=*");
+      pagos = supabaseGet(
+        "pagos",
+        "factura=eq." +
+          encodeURIComponent(venta.factura || facturaNumero || "") +
+          "&select=*",
+      );
 
     var facturaLabel = venta.factura || venta.numero || venta.id || "Factura";
     return {
@@ -186,7 +237,10 @@ function enrichDetallesWithSku(detalles) {
   if (!detalles || detalles.length === 0) return detalles || [];
   var ids = [];
   for (var i = 0; i < detalles.length; i++) {
-    var pid = detalles[i] && detalles[i].producto_id != null ? String(detalles[i].producto_id) : "";
+    var pid =
+      detalles[i] && detalles[i].producto_id != null
+        ? String(detalles[i].producto_id)
+        : "";
     if (pid) ids.push(pid);
   }
   if (ids.length === 0) return detalles;
@@ -195,13 +249,23 @@ function enrichDetallesWithSku(detalles) {
   var seen = {};
   for (var j = 0; j < ids.length; j++) {
     var key = ids[j];
-    if (!seen[key]) { seen[key] = true; uniq.push(key); }
+    if (!seen[key]) {
+      seen[key] = true;
+      uniq.push(key);
+    }
   }
 
-  var idList = uniq.map(function (id) { return String(id).replace(/"/g, ""); }).join(",");
-  
+  var idList = uniq
+    .map(function (id) {
+      return String(id).replace(/"/g, "");
+    })
+    .join(",");
+
   // 💡 CORRECCIÓN PRINCIPAL: Se pide sku y codigo_barras (en vez de "codigo" que daba error)
-  var invRows = supabaseGet("inventario", "id=in.(" + idList + ")&select=id,sku,codigo_barras");
+  var invRows = supabaseGet(
+    "inventario",
+    "id=in.(" + idList + ")&select=id,sku,codigo_barras",
+  );
 
   var skuMap = {};
   for (var r = 0; r < (invRows || []).length; r++) {
@@ -221,7 +285,9 @@ function enrichDetallesWithSku(detalles) {
 
 function getLogoBase64() {
   try {
-    var response = UrlFetchApp.fetch("https://i.imgur.com/26cgOZE.jpeg", { muteHttpExceptions: true });
+    var response = UrlFetchApp.fetch("https://i.imgur.com/26cgOZE.jpeg", {
+      muteHttpExceptions: true,
+    });
     if (response.getResponseCode() === 200) {
       var blob = response.getBlob();
       var base64 = Utilities.base64Encode(blob.getBytes());
@@ -237,7 +303,13 @@ function formatFecha(isoStr) {
   if (!isoStr) return "-";
   try {
     var d = new Date(isoStr);
-    return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear();
+    return (
+      String(d.getDate()).padStart(2, "0") +
+      "/" +
+      String(d.getMonth() + 1).padStart(2, "0") +
+      "/" +
+      d.getFullYear()
+    );
   } catch (e) {
     return String(isoStr).substring(0, 10);
   }
@@ -250,14 +322,62 @@ function fmtMoney(n) {
 
 function esc(str) {
   if (!str) return "";
-  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function numeroALetras(num) {
   if (!isFinite(num)) return "";
-  var unidades = ["", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez", "once", "doce", "trece", "catorce", "quince", "dieciseis", "diecisiete", "dieciocho", "diecinueve", "veinte"];
-  var decenas = ["", "", "veinte", "treinta", "cuarenta", "cincuenta", "sesenta", "setenta", "ochenta", "noventa"];
-  var centenas = ["", "cien", "doscientos", "trescientos", "cuatrocientos", "quinientos", "seiscientos", "setecientos", "ochocientos", "novecientos"];
+  var unidades = [
+    "",
+    "uno",
+    "dos",
+    "tres",
+    "cuatro",
+    "cinco",
+    "seis",
+    "siete",
+    "ocho",
+    "nueve",
+    "diez",
+    "once",
+    "doce",
+    "trece",
+    "catorce",
+    "quince",
+    "dieciseis",
+    "diecisiete",
+    "dieciocho",
+    "diecinueve",
+    "veinte",
+  ];
+  var decenas = [
+    "",
+    "",
+    "veinte",
+    "treinta",
+    "cuarenta",
+    "cincuenta",
+    "sesenta",
+    "setenta",
+    "ochenta",
+    "noventa",
+  ];
+  var centenas = [
+    "",
+    "cien",
+    "doscientos",
+    "trescientos",
+    "cuatrocientos",
+    "quinientos",
+    "seiscientos",
+    "setecientos",
+    "ochocientos",
+    "novecientos",
+  ];
 
   function numeroMenorDeMil(n) {
     if (n === 0) return "";
@@ -287,7 +407,9 @@ function numeroALetras(num) {
     if (chunk) {
       var chunkStr = numeroMenorDeMil(chunk);
       if (idx === 2 && chunk === 1) chunkStr = "un";
-      partes.unshift(chunkStr + (unidadesMiles[idx] ? " " + unidadesMiles[idx] : ""));
+      partes.unshift(
+        chunkStr + (unidadesMiles[idx] ? " " + unidadesMiles[idx] : ""),
+      );
     }
     remainder = Math.floor(remainder / 1000);
     idx++;
@@ -300,25 +422,39 @@ function numeroALetras(num) {
 // ====================================================================================
 
 function buildFacturaHTML(venta, detalles, empresa, pagos) {
-  var empresaNombre = esc(empresa.nombre || empresa.comercio || getEmpresaNombreDefault());
+  var empresaNombre = esc(
+    empresa.nombre || empresa.comercio || getEmpresaNombreDefault(),
+  );
   var rtnEmp = esc(empresa.rtn || "");
   var direccion = esc(empresa.direccion || empresa.direccion_fiscal || "");
   var telefono = esc(empresa.telefono || empresa.telefono_fijo || "");
   var emailEmp = esc(empresa.email || empresa.correo || "");
 
   var numFactura = esc(venta.factura || venta.numero || "");
-  var cliente = esc(venta.cliente || venta.nombre_cliente || "Consumidor Final");
+  var cliente = esc(
+    venta.cliente || venta.nombre_cliente || "Consumidor Final",
+  );
   var rtnCli = esc(venta.rtn_cliente || venta.rtn || "C/F");
   var dirCli = esc(venta.direccion_cliente || "—");
 
-  var fechaDocObj = venta.fecha ? new Date(venta.fecha) : new Date(venta.created_at || Date.now());
+  var fechaDocObj = venta.fecha
+    ? new Date(venta.fecha)
+    : new Date(venta.created_at || Date.now());
   var fechaDoc = formatFecha(venta.fecha || venta.created_at);
-  var horaDoc = esc(venta.hora || fechaDocObj.toLocaleTimeString("es-HN", { hour: "2-digit", minute: "2-digit" }));
+  var horaDoc = esc(
+    venta.hora ||
+      fechaDocObj.toLocaleTimeString("es-HN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+  );
 
   var cai = esc(venta.cai || "—");
   var rangoDesde = esc(venta.rango_de || "—");
   var rangoHasta = esc(venta.rango_hasta || "—");
-  var fechaLimit = esc(venta.fecha_limite_emision || venta.fecha_vencimiento_cai || "—");
+  var fechaLimit = esc(
+    venta.fecha_limite_emision || venta.fecha_vencimiento_cai || "—",
+  );
 
   var subGravado = parseFloat(venta.gravado || venta.sub_total_gravado || 0);
   var subExento = parseFloat(venta.exento || venta.sub_total_exento || 0);
@@ -327,7 +463,10 @@ function buildFacturaHTML(venta, detalles, empresa, pagos) {
   var isv18 = parseFloat(venta.isv_18 || venta.impuesto_18 || 0);
   var total = parseFloat(venta.total || venta.total_factura || 0);
 
-  var efectivo = 0, tarjeta = 0, transferencia = 0, cambio = 0;
+  var efectivo = 0,
+    tarjeta = 0,
+    transferencia = 0,
+    cambio = 0;
   for (var p = 0; p < pagos.length; p++) {
     var met = String(pagos[p].metodo || pagos[p].tipo_pago || "").toLowerCase();
     var monto = parseFloat(pagos[p].monto || pagos[p].valor || 0);
@@ -343,11 +482,11 @@ function buildFacturaHTML(venta, detalles, empresa, pagos) {
   var descuentoTotalCalculado = 0;
   for (var d = 0; d < detalles.length; d++) {
     var det = detalles[d];
-    
+
     // Extraemos el SKU ya mapeado correctamente (jamás pondrá el ID)
     var skuVal = det.sku || det.codigo_barras || "";
-    var sku = esc(skuVal); 
-    
+    var sku = esc(skuVal);
+
     var desc = esc(det.descripcion || det.nombre || det.producto_nombre || "");
     var cant = parseFloat(det.cantidad || det.qty || 0);
     var punit = parseFloat(det.precio_unitario || det.precio || 0);
@@ -355,7 +494,7 @@ function buildFacturaHTML(venta, detalles, empresa, pagos) {
     var descMonto = punit * (pctDesc / 100) * cant; // monto del descuento por línea
     var lineTot = (punit - punit * (pctDesc / 100)) * cant; // total después de descuento
     descuentoTotalCalculado += descMonto;
-    
+
     rowsHtml += `<tr>
       <td>${sku}</td>
       <td>${desc}</td>
@@ -366,7 +505,8 @@ function buildFacturaHTML(venta, detalles, empresa, pagos) {
     </tr>`;
   }
   // Usar el descuento total calculado desde detalles
-  var descuentoTotal = descuentoTotalCalculado > 0 ? descuentoTotalCalculado : descuento;
+  var descuentoTotal =
+    descuentoTotalCalculado > 0 ? descuentoTotalCalculado : descuento;
 
   var logoBase64 = getLogoBase64();
   var logoHtml = logoBase64
@@ -500,7 +640,7 @@ function buildFacturaHTML(venta, detalles, empresa, pagos) {
                       <tr><td>SUB-TOTAL EXENTO:</td><td>L</td><td class="text-right">${fmtMoney(subExento)}</td></tr>
                       <tr><td>DESCUENTO:</td><td>L</td><td class="text-right">${fmtMoney(descuentoTotal)}</td></tr>
                       <tr><td>ISV 15%:</td><td>L</td><td class="text-right">${fmtMoney(isv15)}</td></tr>
-                      ${isv18 > 0 ? `<tr><td>ISV 18%:</td><td>L</td><td class="text-right">${fmtMoney(isv18)}</td></tr>` : ''}
+                      ${isv18 > 0 ? `<tr><td>ISV 18%:</td><td>L</td><td class="text-right">${fmtMoney(isv18)}</td></tr>` : ""}
                       <tr><td>TOTAL A PAGAR:</td><td>L</td><td class="text-right">${fmtMoney(total)}</td></tr>
                   </table>
               </td>
@@ -514,23 +654,27 @@ function buildFacturaHTML(venta, detalles, empresa, pagos) {
 }
 
 function buildCotizacionHTML(cot, detalles, empresa) {
-  var empresaNombre = esc(empresa.nombre || empresa.comercio || getEmpresaNombreDefault());
+  var empresaNombre = esc(
+    empresa.nombre || empresa.comercio || getEmpresaNombreDefault(),
+  );
   var rtnEmp = esc(empresa.rtn || "");
   var direccion = esc(empresa.direccion || empresa.direccion_fiscal || "");
   var telefono = esc(empresa.telefono || empresa.telefono_fijo || "");
   var emailEmp = esc(empresa.email || empresa.correo || "");
-  
+
   var clienteData = cot.clientes || {};
   var numCot = esc(cot.numero_cotizacion || cot.id || "");
   var cliente = esc(clienteData.nombre || "Cliente");
   var rtnCli = esc(clienteData.rtn || "C/F");
   var dirCli = esc(cot.direccion_cliente || "—");
 
-  var fechaDocObj = cot.fecha_cotizacion ? new Date(cot.fecha_cotizacion) : new Date();
+  var fechaDocObj = cot.fecha_cotizacion
+    ? new Date(cot.fecha_cotizacion)
+    : new Date();
   var fechaDoc = formatFecha(cot.fecha_cotizacion);
 
   var subGravado = parseFloat(cot.subtotal || 0);
-  var subExento = parseFloat(cot.exento || 0); 
+  var subExento = parseFloat(cot.exento || 0);
   var descuento = parseFloat(cot.descuento || 0);
   var isv15 = parseFloat(cot.impuesto || 0);
   var isv18 = parseFloat(cot.isv_18 || 0);
@@ -540,7 +684,7 @@ function buildCotizacionHTML(cot, detalles, empresa) {
   var descuentoTotalCalculado = 0;
   for (var d = 0; d < detalles.length; d++) {
     var det = detalles[d];
-    
+
     // Extraemos el SKU ya mapeado
     var skuVal = det.sku || det.codigo_barras || "";
     var sku = esc(skuVal);
@@ -552,7 +696,7 @@ function buildCotizacionHTML(cot, detalles, empresa) {
     var descMonto = punit * (pctDesc / 100) * cant; // monto del descuento
     var lineTot = (punit - punit * (pctDesc / 100)) * cant; // total después de descuento
     descuentoTotalCalculado += descMonto;
-    
+
     rowsHtml += `<tr>
       <td>${sku}</td>
       <td>${desc}</td>
@@ -563,7 +707,8 @@ function buildCotizacionHTML(cot, detalles, empresa) {
     </tr>`;
   }
   // Usar el descuento total calculado en lugar del que viene de cotizaciones
-  var descuentoTotal = descuentoTotalCalculado > 0 ? descuentoTotalCalculado : descuento;
+  var descuentoTotal =
+    descuentoTotalCalculado > 0 ? descuentoTotalCalculado : descuento;
 
   var logoBase64 = getLogoBase64();
   var logoHtml = logoBase64
@@ -676,7 +821,7 @@ function buildCotizacionHTML(cot, detalles, empresa) {
                       <tr><td>SUB-TOTAL EXENTO:</td><td>L</td><td class="text-right">${fmtMoney(subExento)}</td></tr>
                       <tr><td>DESCUENTO:</td><td>L</td><td class="text-right">${fmtMoney(descuentoTotal)}</td></tr>
                       <tr><td>ISV 15%:</td><td>L</td><td class="text-right">${fmtMoney(isv15)}</td></tr>
-                      ${isv18 > 0 ? `<tr><td>ISV 18%:</td><td>L</td><td class="text-right">${fmtMoney(isv18)}</td></tr>` : ''}
+                      ${isv18 > 0 ? `<tr><td>ISV 18%:</td><td>L</td><td class="text-right">${fmtMoney(isv18)}</td></tr>` : ""}
                       <tr><td>TOTAL A PAGAR:</td><td>L</td><td class="text-right">${fmtMoney(total)}</td></tr>
                   </table>
               </td>

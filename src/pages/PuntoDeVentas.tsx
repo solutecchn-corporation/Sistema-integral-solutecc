@@ -616,14 +616,14 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         const qty = Number(it.cantidad || 0);
         const descuentoPct = Number(it.descuento || 0);
 
-          // El precio YA incluye impuestos
-          // Precio efectivo: después de aplicar descuento
-          const precioEfectivo = price * (1 - descuentoPct / 100);
-        
-          // Subtotal y total = precio con descuento (ya incluye impuestos en el precio)
-          const subtotalItem = precioEfectivo * qty;
-          const totalItem = subtotalItem; // Total = subtotal (el precio ya incluye ISV)
-        
+        // El precio YA incluye impuestos
+        // Precio efectivo: después de aplicar descuento
+        const precioEfectivo = price * (1 - descuentoPct / 100);
+
+        // Subtotal y total = precio con descuento (ya incluye impuestos en el precio)
+        const subtotalItem = precioEfectivo * qty;
+        const totalItem = subtotalItem; // Total = subtotal (el precio ya incluye ISV)
+
         // Si es un servicio temporal (entrada manual), usar null como producto_id
         const esTemp = String(it.producto.id).startsWith("temp-");
         return {
@@ -681,7 +681,10 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               detallesSinDescuento,
             );
           } else {
-            console.debug("Cotizacion guardada (si descuento) id=", cotizacionId);
+            console.debug(
+              "Cotizacion guardada (si descuento) id=",
+              cotizacionId,
+            );
           }
         }
       } else {
@@ -720,29 +723,29 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       const priceAfterDiscount = price * (1 - descPct / 100);
       return s + priceAfterDiscount;
     }, 0);
-    
+
     let isv = 0;
     let imp18 = 0;
     let tur = 0;
-    
+
     for (const item of carrito) {
       const unitPrice = Number(item.producto.precio || 0);
       const descPct = Number(item.descuento || 0);
       const unitPriceAfterDiscount = unitPrice * (1 - descPct / 100);
       const price = unitPriceAfterDiscount * item.cantidad;
-      
+
       const exento = Boolean(item.producto.exento);
       const aplica18 = Boolean((item.producto as any).aplica_impuesto_18);
       const aplicaTur = Boolean(
         (item.producto as any).aplica_impuesto_turistico,
       );
       if (exento) continue;
-      
+
       const mainRate = aplica18 ? tax18Rate || 0 : taxRate || 0;
       const turRate = aplicaTur ? taxTouristRate || 0 : 0;
       const combined = (Number(mainRate) || 0) + (Number(turRate) || 0);
       if (combined <= 0) continue;
-      
+
       const taxAmount = price - price / (1 + combined);
       if (aplica18) imp18 += taxAmount * (mainRate / combined);
       else isv += taxAmount * (mainRate / combined);
@@ -2467,7 +2470,11 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 stock: 0,
                 imagen: undefined,
               };
-          return { producto, cantidad: Number(d.cantidad || 1), descuento: Number(d.descuento || 0) };
+          return {
+            producto,
+            cantidad: Number(d.cantidad || 1),
+            descuento: Number(d.descuento || 0),
+          };
         });
         if (items.length > 0) setCarrito(items);
         try {
@@ -2517,7 +2524,11 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 stock: 0,
                 imagen: undefined,
               };
-          return { producto, cantidad: Number(d.cantidad || 1), descuento: Number(d.descuento || 0) };
+          return {
+            producto,
+            cantidad: Number(d.cantidad || 1),
+            descuento: Number(d.descuento || 0),
+          };
         });
         if (items.length > 0) setCarrito(items);
       } catch (e) {}
