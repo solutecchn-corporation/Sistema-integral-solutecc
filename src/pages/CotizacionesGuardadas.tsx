@@ -828,7 +828,7 @@ export default function CotizacionesGuardadas({
               }}
             >
               <h3 style={{ margin: 0, fontSize: "20px", color: "#1e293b" }}>
-                Detalle de Cotización #{selectedId}
+                  Cotización #{viewHeader?.numero_cotizacion || (viewHeader as any)?.["Número"] || "N/A"}
               </h3>
               <button
                 onClick={() => {
@@ -1046,12 +1046,7 @@ export default function CotizacionesGuardadas({
                           color: "#1e293b",
                         }}
                       >
-                        L{" "}
-                        {formatMoney(
-                          Number(
-                            d.total || (d.subtotal || 0) - (d.descuento || 0),
-                          ),
-                        )}
+                        L {formatMoney(Number(d.total || 0))}
                       </td>
                     </tr>
                   ))}
@@ -1069,51 +1064,71 @@ export default function CotizacionesGuardadas({
                     borderRadius: 8,
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: 8,
-                    }}
-                  >
-                    <span style={{ color: "#64748b" }}>Subtotal:</span>
-                    <span style={{ fontWeight: 500 }}>
-                      L {formatMoney(Number(viewHeader.subtotal || 0))}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: 8,
-                    }}
-                  >
-                    <span style={{ color: "#64748b" }}>Impuesto:</span>
-                    <span style={{ fontWeight: 500 }}>
-                      L {formatMoney(Number(viewHeader.impuesto || 0))}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      paddingTop: 8,
-                      borderTop: "1px solid #e2e8f0",
-                    }}
-                  >
-                    <span style={{ fontWeight: 700, color: "#1e293b" }}>
-                      Total:
-                    </span>
-                    <span
-                      style={{
-                        fontWeight: 700,
-                        color: "#1e293b",
-                        fontSize: "16px",
-                      }}
-                    >
-                      L {formatMoney(Number(viewHeader.total || 0))}
-                    </span>
-                  </div>
+                  {(() => {
+                      // El total guardado es el precio con descuento (ya incluye ISV)
+                    const subtotalCalculado = detalles.reduce(
+                      (sum, d) => sum + Number(d.subtotal || 0),
+                      0,
+                    );
+                    const totalCalculado = detalles.reduce(
+                      (sum, d) => sum + Number(d.total || 0),
+                      0,
+                    );
+                      // ISV está incluido en el total, extraer del precio: total - total / (1 + rate)
+                      // Usar tasa por defecto 15% si no hay una variable `taxRate` disponible en este componente
+                      const rateIsvPromedio = 0.15;
+                      const impuestoCalculado = totalCalculado - totalCalculado / (1 + rateIsvPromedio);
+
+                    return (
+                      <>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: 8,
+                          }}
+                        >
+                          <span style={{ color: "#64748b" }}>Subtotal:</span>
+                          <span style={{ fontWeight: 500 }}>
+                              L {formatMoney(totalCalculado / (1 + rateIsvPromedio))}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: 8,
+                          }}
+                        >
+                          <span style={{ color: "#64748b" }}>Impuesto:</span>
+                          <span style={{ fontWeight: 500 }}>
+                            L {formatMoney(impuestoCalculado)}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            paddingTop: 8,
+                            borderTop: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <span style={{ fontWeight: 700, color: "#1e293b" }}>
+                            Total:
+                          </span>
+                          <span
+                            style={{
+                              fontWeight: 700,
+                              color: "#1e293b",
+                              fontSize: "16px",
+                            }}
+                          >
+                            L {formatMoney(totalCalculado)}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             )}

@@ -614,28 +614,16 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       const detalles = carrito.map((it) => {
         const price = Number(it.producto.precio || 0);
         const qty = Number(it.cantidad || 0);
-        const exento = Boolean(it.producto.exento);
-        const aplica18 = Boolean((it.producto as any).aplica_impuesto_18);
-        const aplicaTur = Boolean(
-          (it.producto as any).aplica_impuesto_turistico,
-        );
-        const isvItem = exento
-          ? 0
-          : aplica18
-            ? 0
-            : price * (taxRate || 0) * qty;
-        const imp18Item = exento
-          ? 0
-          : aplica18
-            ? price * (tax18Rate || 0) * qty
-            : 0;
-        const turItem = exento
-          ? 0
-          : aplicaTur
-            ? price * (taxTouristRate || 0) * qty
-            : 0;
-        const subtotalItem = price * qty;
-        const totalItem = subtotalItem + isvItem + imp18Item + turItem;
+        const descuentoPct = Number(it.descuento || 0);
+
+          // El precio YA incluye impuestos
+          // Precio efectivo: después de aplicar descuento
+          const precioEfectivo = price * (1 - descuentoPct / 100);
+        
+          // Subtotal y total = precio con descuento (ya incluye impuestos en el precio)
+          const subtotalItem = precioEfectivo * qty;
+          const totalItem = subtotalItem; // Total = subtotal (el precio ya incluye ISV)
+        
         // Si es un servicio temporal (entrada manual), usar null como producto_id
         const esTemp = String(it.producto.id).startsWith("temp-");
         return {
@@ -645,10 +633,11 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           cantidad: qty,
           precio_unitario: price,
           subtotal: subtotalItem,
-          descuento: Number(it.descuento || 0),
+          descuento: descuentoPct,
           total: totalItem,
         };
       });
+      console.debug("Detalles cotizacion a guardar:", detalles);
 
       // reemplazar detalles: borrar existentes y volver a insertar
       try {
@@ -662,9 +651,42 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       const { error: detErr } = await supabase
         .from("cotizaciones_detalle")
         .insert(detalles);
-      if (detErr)
-        console.warn("Error insertando cotizaciones_detalle:", detErr);
-      else console.debug("Cotizacion guardada id=", cotizacionId);
+      if (detErr) {
+        console.warn(
+          "Error insertando cotizaciones_detalle con descuento:",
+          detErr,
+        );
+        console.warn("Detalles que fallaron:", detalles);
+
+        // Fallback: reintentar sin campo descuento si falla
+        if (
+          detErr.code === "42703" ||
+          String(detErr.message || "").includes("descuento")
+        ) {
+          console.warn(
+            "Campo descuento no existe o error. Reintentando sin descuento...",
+          );
+          const detallesSinDescuento = detalles.map((d) => {
+            const copy: any = { ...d };
+            delete copy.descuento;
+            return copy;
+          });
+          const { error: detErr2 } = await supabase
+            .from("cotizaciones_detalle")
+            .insert(detallesSinDescuento);
+          if (detErr2) {
+            console.warn(
+              "Fallback insert también falló:",
+              detErr2,
+              detallesSinDescuento,
+            );
+          } else {
+            console.debug("Cotizacion guardada (si descuento) id=", cotizacionId);
+          }
+        }
+      } else {
+        console.debug("Cotizacion guardada con descuento id=", cotizacionId);
+      }
 
       // Actualizar UI inmediatamente: vaciar carrito y refrescar tabla de productos
       try {
@@ -691,25 +713,36 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   // generateFacturaHTML moved to src/lib/generateFacturaHTML.ts
 
   const subtotalCalc = () => {
-    const gross = carrito.reduce(
-      (s, it) => s + Number(it.producto.precio || 0) * it.cantidad,
-      0,
-    );
+    // Calcular subtotal considerando descuentos POR LÍNEA
+    const gross = carrito.reduce((s, it) => {
+      const price = Number(it.producto.precio || 0) * it.cantidad;
+      const descPct = Number(it.descuento || 0);
+      const priceAfterDiscount = price * (1 - descPct / 100);
+      return s + priceAfterDiscount;
+    }, 0);
+    
     let isv = 0;
     let imp18 = 0;
     let tur = 0;
+    
     for (const item of carrito) {
-      const price = Number(item.producto.precio || 0) * item.cantidad;
+      const unitPrice = Number(item.producto.precio || 0);
+      const descPct = Number(item.descuento || 0);
+      const unitPriceAfterDiscount = unitPrice * (1 - descPct / 100);
+      const price = unitPriceAfterDiscount * item.cantidad;
+      
       const exento = Boolean(item.producto.exento);
       const aplica18 = Boolean((item.producto as any).aplica_impuesto_18);
       const aplicaTur = Boolean(
         (item.producto as any).aplica_impuesto_turistico,
       );
       if (exento) continue;
+      
       const mainRate = aplica18 ? tax18Rate || 0 : taxRate || 0;
       const turRate = aplicaTur ? taxTouristRate || 0 : 0;
       const combined = (Number(mainRate) || 0) + (Number(turRate) || 0);
       if (combined <= 0) continue;
+      
       const taxAmount = price - price / (1 + combined);
       if (aplica18) imp18 += taxAmount * (mainRate / combined);
       else isv += taxAmount * (mainRate / combined);
@@ -1543,7 +1576,36 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       .select("id");
     console.debug("Insert ventas_detalle response:", { detalleIns, detErr });
     if (detErr) {
-      throw detErr;
+      console.warn(
+        "Error al insertar ventas_detalle con descuento:",
+        detErr,
+        detalles,
+      );
+
+      // Fallback: reintentar sin campo descuento si falla
+      if (
+        detErr.code === "42703" ||
+        String(detErr.message || "").includes("descuento")
+      ) {
+        console.warn(
+          "Campo descuento no existe o error en ventas_detalle. Reintentando...",
+        );
+        const detallesSinDescuento = detalles.map((d) => {
+          const copy: any = { ...d };
+          delete copy.descuento;
+          return copy;
+        });
+        const { data: detalleIns2, error: detErr2 } = await supabase
+          .from("ventas_detalle")
+          .insert(detallesSinDescuento)
+          .select("id");
+        if (detErr2) {
+          console.warn("Fallback también falló:", detErr2);
+          throw detErr2;
+        }
+      } else {
+        throw detErr;
+      }
     }
     // Registrar salidas en `registro_de_inventario` por cada detalle (SALIDA)
     try {
